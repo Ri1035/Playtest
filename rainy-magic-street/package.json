@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "esbuild": "^0.20.2",
+    "playwright-core": "^1.63.0",
+    "three": "^0.159.0"
+  },
+  "name": "rainy-magic-street",
+  "description": "雨夜魔法街区街角 · 三渲二微缩三维场景（three.js 单文件）"
+}

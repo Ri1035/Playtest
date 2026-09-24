@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>喵喵跟随 · 抽帧互动</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='20' r='7' fill='%23FF5A3C'/%3E%3Ccircle cx='7' cy='12' r='3.2' fill='%23FF5A3C'/%3E%3Ccircle cx='16' cy='9' r='3.4' fill='%23FF5A3C'/%3E%3Ccircle cx='25' cy='12' r='3.2' fill='%23FF5A3C'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grid" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
+
+  <header class="hud">
+    <h1>喵喵跟随<span>Cat&nbsp;Follow</span></h1>
+    <p>移动鼠标，小猫会一路小跑跟着你</p>
+  </header>
+
+  <canvas id="stage"></canvas>
+
+  <div id="hint" class="hint">
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M6 3l12 9-5.5 1L15 20l-2.6 1-2.5-7L6 17z" fill="currentColor"/>
+    </svg>
+    <span>移动鼠标 / 触摸屏幕，小猫就会跟过来 · 点击它会跳一下</span>
+  </div>
+
+  <aside class="panel" id="panel">
+    <button class="panel-toggle" id="panelToggle" aria-label="展开设置" aria-expanded="false">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+      </svg>
+    </button>
+    <div class="panel-body" id="panelBody">
+      <h2>互动设置</h2>
+      <label class="ctl">
+        <span>跟随灵敏度</span>
+        <input type="range" id="rStiff" min="4" max="30" step="1" value="12" />
+      </label>
+      <label class="ctl">
+        <span>小猫大小</span>
+        <input type="range" id="rScale" min="50" max="140" step="1" value="100" />
+      </label>
+      <label class="ctl ctl-row">
+        <span>落地影子</span>
+        <input type="checkbox" id="cShadow" checked />
+      </label>
+      <label class="ctl ctl-row">
+        <span>运动残影</span>
+        <input type="checkbox" id="cTrail" checked />
+      </label>
+    </div>
+  </aside>
+
+  <div class="loader" id="loader">
+    <div class="loader-ring" aria-hidden="true"></div>
+    <div class="loader-bar"><i id="bar"></i></div>
+    <div class="loader-text" id="loaderText">正在抽帧加载 0%</div>
+  </div>
+
+  <script src="frames/manifest.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

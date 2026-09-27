@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>八项技能详解 · GSAP Skills</title>
+<meta name="description" content="GSAP 官方 AI Skills 八项技能详解：核心 API、时间线、滚动触发、插件、工具函数、React、性能、框架集成——每个技能附现场可交互样例。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230AE448'/%3E%3Cpath d='M9 21.5 15 9l4 8 2.5-4.5' stroke='%230A0E0B' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://miaoda.feishu.cn">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap">
+<style>
+:root{
+  --bg:#0A0E0B;
+  --bg-2:#0E140F;
+  --bg-3:#121A13;
+  --ink:#E9F2EA;
+  --ink-dim:#8FA59A;
+  --ink-faint:#5E7368;
+  --accent:#0AE448;
+  --accent-deep:#07B23A;
+  --accent-ink:#062A11;
+  --line:rgba(233,242,234,.09);
+  --line-strong:rgba(233,242,234,.16);
+  --radius:14px;
+  --font-main:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-main);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:var(--accent);color:var(--accent-ink)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.grain{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.045;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* 顶栏 */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:18px clamp(20px,5vw,48px);background:rgba(10,14,11,.86);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:700;font-size:15px;letter-spacing:.02em}
+.brand svg{display:block}
+.topnav{display:flex;gap:20px;font-size:13.5px;color:var(--ink-dim)}
+.topnav a{color:var(--ink-dim)}
+.topnav a:hover{color:var(--accent);text-decoration:none}
+
+/* 页首 */
+.page-head{padding:130px clamp(20px,5vw,48px) 40px;text-align:center}
+.page-head .eyebrow{font-size:12px;letter-spacing:.16em;color:var(--accent);font-weight:500;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px}
+.page-head .eyebrow::before,.page-head .eyebrow::after{content:"";width:26px;height:1px;background:var(--line-strong)}
+.page-head h1{font-size:clamp(30px,4.6vw,52px);font-weight:900;margin-top:14px;letter-spacing:-.01em}
+.page-head p{color:var(--ink-dim);max-width:640px;margin:12px auto 0;font-size:15px}
+.skill-jump{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:28px}
+.skill-jump a{font-size:12.5px;color:var(--ink-dim);border:1px solid var(--line-strong);border-radius:999px;padding:6px 14px;transition:all .2s}
+.skill-jump a:hover{color:var(--accent);border-color:var(--accent);text-decoration:none}
+
+/* 技能大区块 */
+.skill-block{padding:90px clamp(20px,5vw,48px) 0;border-top:1px solid var(--line)}
+.skill-block-inner{max-width:1120px;margin:0 auto}
+.skill-head{display:flex;align-items:baseline;gap:14px;margin-bottom:34px}
+.skill-head .s-no{font-family:var(--font-mono);font-size:12px;color:var(--accent);letter-spacing:.12em}
+.skill-head h2{font-size:clamp(24px,3.4vw,34px);font-weight:900;letter-spacing:-.01em}
+.skill-head h2 code{font-family:var(--font-mono);font-weight:500}
+.skill-head .s-sub{color:var(--ink-faint);font-size:14px;font-weight:400;margin-left:10px}
+.skill-body{display:grid;grid-template-columns:400px minmax(0,1fr);gap:44px;align-items:start}
+
+/* 介绍列 */
+.skill-intro h3{font-size:13px;letter-spacing:.08em;color:var(--accent);font-weight:600;margin:26px 0 8px;text-transform:uppercase}
+.skill-intro h3:first-child{margin-top:0}
+.skill-intro p{font-size:14px;color:var(--ink-dim);line-height:1.75}
+.skill-intro ul{list-style:none;margin-top:2px}
+.skill-intro ul li{font-size:13.5px;color:var(--ink-dim);padding:5px 0 5px 18px;position:relative;line-height:1.65}
+.skill-intro ul li::before{content:"";position:absolute;left:0;top:13px;width:6px;height:6px;border-radius:2px;background:var(--accent);opacity:.7}
+.skill-intro pre{font-family:var(--font-mono);font-size:12px;line-height:1.7;color:var(--ink);background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;white-space:pre;max-width:100%}
+.skill-intro .do-list li::before{background:var(--accent)}
+.skill-intro .dont-list li{color:#C98A8A}
+.skill-intro .dont-list li::before{background:#C96A6A}
+.skill-intro .tag-pill{display:inline-block;font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:999px;padding:2px 10px;margin:3px 4px 0 0}
+
+/* 样例列 */
+.samples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.sample-card{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;min-width:0}
+.sample-card.wide{grid-column:1/-1}
+.sample-card .lab-no{font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:.12em}
+.sample-card h3{font-size:16px;font-weight:700;margin:7px 0 5px}
+.sample-card .lab-desc{font-size:13px;color:var(--ink-dim);margin-bottom:14px;line-height:1.6}
+.stage{border:1px solid var(--line);border-radius:10px;background:var(--bg);height:150px;position:relative;overflow:hidden;margin-bottom:14px}
+.stage.tall{height:190px}
+.stage .cell{position:absolute;width:44px;height:44px;border-radius:9px;background:var(--accent);box-shadow:0 0 0 4px rgba(10,228,72,.08)}
+.stage .cell.c2{background:#3A7D50}
+.stage .cell.c3{background:#DFE8E0}
+.stage .cell.c4{background:#0E8A2E}
+.stage .cell.c5{background:#7CF9AB}
+.stage.row{display:flex;align-items:center;justify-content:center;gap:12px}
+.stage.row .cell{position:static;flex-shrink:0}
+.stage .cell-label{position:absolute;bottom:6px;font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);letter-spacing:.04em}
+.stage .center-note{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--ink-faint);pointer-events:none}
+.stage .pin-readout{position:absolute;right:18px;bottom:14px;font-family:var(--font-mono);font-size:13px;color:var(--accent)}
+.stage .bar{position:absolute;left:24px;top:50%;height:4px;width:calc(100% - 48px);background:var(--line-strong);transform-origin:left center}
+.stage .bar-fill{position:absolute;left:24px;top:50%;height:4px;margin-top:-2px;width:calc(100% - 48px);background:var(--accent);transform:scaleX(0);transform-origin:left center;border-radius:4px}
+.stage .track-line{position:absolute;left:24px;right:24px;top:50%;height:1px;background:var(--line-strong)}
+.stage .track-fill{position:absolute;left:24px;top:50%;height:3px;margin-top:-1.5px;width:0;background:var(--accent);border-radius:3px}
+.stage .knob{position:absolute;left:24px;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:50%;background:var(--bg-3);border:2px solid var(--accent)}
+.lab-code{font-family:var(--font-mono);font-size:12px;line-height:1.65;color:var(--ink-dim);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;white-space:pre;margin-bottom:14px;flex:1}
+.lab-code .c-k{color:var(--accent)}
+.lab-code .c-p{color:#7CF9AB}
+.lab-code .c-s{color:#8FA59A}
+.lab-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lab-hint{font-size:12px;color:var(--ink-faint)}
+.btn{font-size:13px;color:var(--ink);border:1px solid var(--line-strong);background:transparent;border-radius:999px;padding:7px 16px;transition:all .2s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.ctrl-group{display:flex;gap:8px;flex-wrap:wrap}
+
+/* 滑块 */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:4px;background:var(--line-strong);outline:none;margin:10px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--bg-3);cursor:pointer;box-shadow:0 0 0 1px var(--accent)}
+.slider-row{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.slider-row .val{font-family:var(--font-mono);font-size:12.5px;color:var(--accent);min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* 代码展示卡（React / 框架） */
+.code-show{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.code-show h3{font-size:15.5px;font-weight:700;margin-bottom:10px}
+.code-show .lab-desc{font-size:13px;color:var(--ink-dim);margin-bottom:14px}
+.code-show pre{font-family:var(--font-mono);font-size:12px;line-height:1.7;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;white-space:pre;max-width:100%}
+.code-show .c-k{color:var(--accent)}
+.code-show .c-p{color:#7CF9AB}
+.code-show .c-s{color:#8FA59A}
+.code-show .c-c{color:#5E7368}
+.points{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.points .pt{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--ink-dim);line-height:1.6}
+.points .pt strong{color:var(--accent);font-weight:600;display:block;margin-bottom:3px}
+
+/* 页脚 */
+footer{margin-top:110px;border-top:1px solid var(--line);padding:40px clamp(20px,5vw,48px) 56px}
+.foot-wrap{max-width:1120px;margin:0 auto;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
+.foot-links{display:flex;gap:20px;font-size:13.5px;color:var(--ink-dim);flex-wrap:wrap}
+.foot-links a{color:var(--ink-dim)}
+.foot-links a:hover{color:var(--accent);text-decoration:none}
+.foot-note{font-size:12.5px;color:var(--ink-faint)}
+
+/* Flip 网格 */
+.flip-grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:10px;padding:16px;align-content:center}
+.flip-item{background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12.5px;color:var(--accent-ink);font-weight:700;box-shadow:0 0 0 3px rgba(10,228,72,.08)}
+.flip-item:nth-child(odd){background:#3A7D50;color:#E9F2EA}
+
+/* 批量动画 mini 方块 */
+.mini{position:absolute;width:14px;height:14px;background:var(--accent);border-radius:3px}
+
+/* 拖拽方块 */
+.stage .drag-box{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--accent-ink);font-weight:700;cursor:grab;box-shadow:0 0 0 4px rgba(10,228,72,.1);user-select:none}
+.stage .drag-box:active{cursor:grabbing}
+
+/* quickTo 跟随圆点 */
+.stage .qk-dot{position:absolute;left:calc(50% - 10px);top:calc(50% - 10px);width:20px;height:20px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(10,228,72,.12);pointer-events:none}
+
+/* 函数化取值舞台纵排 */
+.stage.col{flex-direction:column;gap:8px}
+
+/* 纵向舞台（缓动对比 / 函数化取值） */
+.stage.col{flex-direction:column;gap:10px;align-items:flex-start;justify-content:center;padding-left:26px}
+.stage.col .cell{position:static;flex-shrink:0}
+.stage.col .cell::after{content:attr(data-label);position:absolute;left:calc(100% + 14px);top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);white-space:nowrap;letter-spacing:.02em}
+
+@media (max-width:960px){
+  .skill-body{grid-template-columns:minmax(0,1fr);gap:30px}
+  .samples{grid-template-columns:minmax(0,1fr)}
+  .points{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .topnav{display:none}
+  .page-head{padding-top:110px}
+  .skill-block{padding-top:70px}
+  .skill-head{flex-wrap:wrap}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#0AE448"/><path d="M9 21.5 15 9l4 8 2.5-4.5" stroke="#0A0E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    GSAP&nbsp;Skills
+  </div>
+  <nav class="topnav" aria-label="主导航">
+    <a href="index.html">返回首页</a>
+    <a href="index.html#lab">现场演示</a>
+    <a href="https://github.com/greensock/gsap-skills" target="_blank" rel="noopener">上游仓库 ↗</a>
+  </nav>
+</header>
+
+<section class="page-head">
+  <div class="eyebrow">Skills · 详解</div>
+  <h1>八项官方技能详解</h1>
+  <p>每个技能讲清三件事：它是什么、何时用、怎么用。vanilla 类技能全部配了可交互现场样例，React / Vue 类给出官方推荐写法。</p>
+  <nav class="skill-jump" aria-label="技能目录">
+    <a href="#skill-core">core</a>
+    <a href="#skill-timeline">timeline</a>
+    <a href="#skill-scrolltrigger">scrolltrigger</a>
+    <a href="#skill-plugins">plugins</a>
+    <a href="#skill-utils">utils</a>
+    <a href="#skill-react">react</a>
+    <a href="#skill-performance">performance</a>
+    <a href="#skill-frameworks">frameworks</a>
+  </nav>
+</section>
+
+<main>
+<!-- ===== 01 gsap-core ===== -->
+<section class="skill-block" id="skill-core">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">01</span>
+      <h2><code>gsap-core</code><span class="s-sub">核心 API 与基础补间</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>GSAP 引擎的核心技能：<code>gsap.to() / from() / fromTo()</code> 三种补间方法、缓动、时长、stagger、默认值，以及面向响应式与无障碍的 <code>gsap.matchMedia()</code>。这是所有其他技能的地基。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>单元素/多元素基础动画（移动、旋转、缩放、淡入淡出）</li>
+          <li>需要运行时控制（暂停、反转、跳到某个进度）</li>
+          <li>需要精确缓动曲线，或按序列/交错编排</li>
+        </ul>
+        <h3>关键 API</h3>
+        <pre>gsap.to(".box", { x: 100, rotation: 360,
+  duration: 0.8, ease: "power2.inOut" });
+
+gsap.from(el, { autoAlpha: 0, y: 20, stagger: 0.1 });
+gsap.fromTo(el, { x: 0 }, { x: 200, duration: 1 });</pre>
+        <h3>官方最佳实践</h3>
+        <ul class="do-list">
+          <li>属性一律用 camelCase；移动优先用 transform 别名（x / y / scale / rotation）</li>
+          <li>淡入淡出用 <strong>autoAlpha</strong>（为 0 时自动隐藏、不挡点击）</li>
+          <li>用 <strong>gsap.matchMedia()</strong> 处理断点与 prefers-reduced-motion</li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">timeline</span><span class="tag-pill">scrolltrigger</span><span class="tag-pill">utils</span>
+      </div>
+      <div class="samples">
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · EASING</div>
+          <h3>五种缓动对比</h3>
+          <p class="lab-desc">同一段位移，换不同 ease 手感完全不同。点击重播，观察谁先冲出、谁带回弹。</p>
+          <div class="stage col" data-stage="ease" data-h="140">
+            <div class="cell" data-ease="power1.out" style="height:36px;width:36px"></div>
+            <div class="cell c4" data-ease="power3.inOut" style="height:36px;width:36px"></div>
+            <div class="cell c3" data-ease="back.out(1.7)" style="height:36px;width:36px"></div>
+            <div class="cell c5" data-ease="elastic.out(1,0.3)" style="height:36px;width:36px"></div>
+            <div class="cell c2" data-ease="expo.out" style="height:36px;width:36px"></div>
+          </div>
+          <pre class="lab-code"><span class="c-k">gsap</span>.to(<span class="c-s">el</span>, { x: <span class="c-p">180</span>, duration: <span class="c-p">0.9</span>,
+  ease: <span class="c-s">"back.out(1.7)"</span> }); <span class="c-c">// 各自不同 ease</span></pre>
+          <div class="lab-actions">
+            <span class="lab-hint">power1.out · power3.inOut · back · elastic · expo</span>
+            <button class="btn" data-replay="ease">重播</button>
+          </div>
+        </article>
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · FUNCTION VALUES</div>
+          <h3>函数化取值</h3>
+          <p class="lab-desc">vars 里传函数，GSAP 会为每个目标单独求值一次——按序号递增位移就是这么写的。</p>
+          <div class="stage col" data-stage="fnval" data-h="140">
+            <div class="cell" data-i="0" style="height:36px;width:36px"></div>
+            <div class="cell c2" data-i="1" style="height:36px;width:36px"></div>
+            <div class="cell" data-i="2" style="height:36px;width:36px"></div>
+            <div class="cell c4" data-i="3" style="height:36px;width:36px"></div>
+            <div class="cell c5" data-i="4" style="height:36px;width:36px"></div>
+            <div class="cell c3" data-i="5" style="height:36px;width:36px"></div>
+          </div>
+          <pre class="lab-code"><span class="c-k">gsap</span>.to(<span class="c-s">items</span>, {
+  x: <span class="c-p">(i) =&gt; i * 26</span>,          <span class="c-c">// 每个目标单独求值</span>
+  y: <span class="c-p">(i) =&gt; i % 2 ? -14 : 14</span>,
+  stagger: <span class="c-p">0.06</span>, duration: <span class="c-p">0.5</span>
+});</pre>
+          <div class="lab-actions">
+            <span class="lab-hint">i 为目标序号，从 0 开始</span>
+            <button class="btn" data-replay="fnval">重播</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 02 gsap-timeline ===== -->
+<section class="skill-block" id="skill-timeline">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">02</span>
+      <h2><code>gsap-timeline</code><span class="s-sub">序列编排与播放控制</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>时间线把多个补间按顺序（或指定时刻）编排成一条可整体控制的动画线，替代"链式 delay"的官方做法。支持 position 参数、标签、嵌套与暂停/播放/反转。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>多步骤动画需要严格排序、重叠或精确对齐</li>
+          <li>整条动画需要统一控制（播放、反转、跳到某时刻）</li>
+          <li>与 ScrollTrigger 配合做滚动驱动的时间线</li>
+        </ul>
+        <h3>关键 API</h3>
+        <pre>const tl = gsap.timeline({ defaults: { duration: 0.5, ease: "power2.out" } });
+tl.to(a, { x: 100 })                 <span class="c-c">// 依序追加</span>
+  .to(b, { y: 50 }, "&lt;0.2")        <span class="c-c">// 在上一段开始后 0.2s</span>
+  .to(c, { opacity: 0 }, "-=0.1");   <span class="c-c">// 提前 0.1s 收尾</span>
+tl.pause(); tl.play(); tl.reverse(); tl.restart();</pre>
+        <h3>官方最佳实践</h3>
+        <ul class="do-list">
+          <li>用 <strong>position 参数</strong>精确控制各步时刻，别用 delay 硬排</li>
+          <li>把公共 duration / ease 放进 <strong>defaults</strong>，子补间自动继承</li>
+          <li>多步用 <strong>labels</strong> 标注关键节点，代码可读可维护</li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">core</span><span class="tag-pill">scrolltrigger</span>
+      </div>
+      <div class="samples">
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · PLAYBACK</div>
+          <h3>播放控制面板</h3>
+          <p class="lab-desc">三步时间线（平移 → 变色 → 缩放）。试试播放、暂停、倒退、重播四条控制。</p>
+          <div class="stage" data-stage="playback" data-h="150">
+            <div class="cell" data-el="pb-box"></div>
+          </div>
+          <pre class="lab-code"><span class="c-k">const</span> tl = <span class="c-k">gsap</span>.<span class="c-k">timeline</span>({ defaults: { duration: <span class="c-p">0.5</span> } });
+tl.to(<span class="c-s">box</span>, { x: <span class="c-p">170</span>, duration: <span class="c-p">0.7</span> })
+  .to(<span class="c-s">box</span>, { backgroundColor: <span class="c-s">"#7CF9AB"</span> })
+  .to(<span class="c-s">box</span>, { scale: <span class="c-p">0.55</span> }, <span class="c-s">"+=0.1"</span>);
+tl.<span class="c-k">pause</span>(); tl.<span class="c-k">play</span>(); tl.<span class="c-k">reverse</span>(); tl.<span class="c-k">restart</span>();</pre>
+          <div class="lab-actions">
+            <div class="ctrl-group">
+              <button class="btn on" data-pb="play">播放</button>
+              <button class="btn" data-pb="pause">暂停</button>
+              <button class="btn" data-pb="reverse">倒退</button>
+              <button class="btn" data-pb="restart">重播</button>
+            </div>
+          </div>
+        </article>
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · POSITION</div>
+          <h3>position 参数</h3>
+          <p class="lab-desc">A 先走；B 用 <code>&lt;0.2</code> 在 A 开始 0.2s 后并行；C 用默认 <code>&gt;</code> 等 A 结束再动。</p>
+          <div class="stage row" data-stage="position" data-h="150" style="flex-direction:column;gap:10px">
+            <div class="cell" data-el="pos-a" style="position:relative"></div>
+            <div class="cell c4" data-el="pos-b" style="position:relative"></div>
+            <div class="cell c5" data-el="pos-c" style="position:relative"></div>
+          </div>
+          <pre class="lab-code"><span class="c-k">const</span> tl = <span class="c-k">gsap</span>.<span class="c-k">timeline</span>();
+tl.to(<span class="c-s">a</span>, { x: <span class="c-p">150</span>, duration: <span class="c-p">0.8</span> })   <span class="c-c">// A 起点</span>
+  .to(<span class="c-s">b</span>, { x: <span class="c-p">150</span> }, <span class="c-s">"&lt;0.2"</span>)   <span class="c-c">// A 开始后 0.2s</span>
+  .to(<span class="c-s">c</span>, { x: <span class="c-p">150</span> });            <span class="c-c">// 默认 "&gt;"：A 结束后</span></pre>
+          <div class="lab-actions">
+            <span class="lab-hint">B 与 A 并行、C 紧随其后</span>
+            <button class="btn" data-replay="position">重播</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 03 gsap-scrolltrigger ===== -->
+<section class="skill-block" id="skill-scrolltrigger">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">03</span>
+      <h2><code>gsap-scrolltrigger</code><span class="s-sub">滚动联动、固定与跟手</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>把动画与滚动位置绑定的技能：元素进入视口触发、<strong>pin</strong> 固定区块、<strong>scrub</strong> 让进度跟手、<strong>batch</strong> 批量入场、toggleActions 控制进出行为。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>滚动驱动的叙事：滚到某处动画播放/反向</li>
+          <li>长页面的固定区块（pin）或视差/进度条</li>
+          <li>批量元素入场（列表、卡片、网格）</li>
+        </ul>
+        <h3>关键 API</h3>
+        <pre>gsap.to(el, { x: 300,
+  scrollTrigger: {
+    trigger: el, start: "top center",
+    end: "bottom center",
+    toggleActions: "play reverse play reverse",
+    scrub: 1            <span class="c-c">// 或 true：进度跟手</span>
+  }
+});</pre>
+        <h3>官方最佳实践</h3>
+        <ul class="do-list">
+          <li><strong>gsap.registerPlugin(ScrollTrigger)</strong> 只用注册一次</li>
+          <li>ScrollTrigger 只挂时间线或顶层补间，别挂子补间</li>
+          <li>scrub 与 toggleActions 二选一，别同时用</li>
+          <li>布局变化后调用 <strong>ScrollTrigger.refresh()</strong></li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">core</span><span class="tag-pill">timeline</span>
+      </div>
+      <div class="samples">
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · PIN</div>
+          <h3>固定区块（pin）</h3>
+          <p class="lab-desc">继续向下滚动：舞台被固定在视口内，进度条随滚动填充，数字实时跟手。</p>
+          <div class="stage tall" data-stage="pin" data-h="200">
+            <div class="bar"></div>
+            <div class="bar-fill" data-el="pin-fill"></div>
+            <div class="pin-readout" data-el="pin-num">0%</div>
+          </div>
+          <pre class="lab-code"><span class="c-k">ScrollTrigger</span>.create({
+  trigger: <span class="c-s">stage</span>, start: <span class="c-s">"top top"</span>,
+  end: <span class="c-s">"+=500"</span>, pin: <span class="c-p">true</span>, scrub: <span class="c-p">1</span>,
+  onUpdate: <span class="c-p">(self) =&gt; {</span>
+    num.textContent = Math.round(self.progress * 100) + "%";
+  }
+});</pre>
+          <div class="lab-actions">
+            <span class="lab-hint">向下滚动体验 · pin + scrub</span>
+            <button class="btn" data-replay="pin">回到起点</button>
+          </div>
+        </article>
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · TOGGLE</div>
+          <h3>进出反向（toggleActions）</h3>
+          <p class="lab-desc">方块进入视口时播放，离开时反向回退——常用于"进入才现身"的内容。</p>
+          <div class="stage" data-stage="toggle" data-h="150">
+            <div class="cell" data-el="tg-box"></div>
+          </div>
+          <pre class="lab-code"><span class="c-k">gsap</span>.to(<span class="c-s">box</span>, {
+  x: <span class="c-p">200</span>, rotation: <span class="c-p">180</span>,
+  scrollTrigger: {
+    trigger: <span class="c-s">stage</span>, start: <span class="c-s">"top 70%"</span>,
+    toggleActions: <span class="c-s">"play none none reverse"</span>
+  }
+});</pre>
+          <div class="lab-actions">
+            <span class="lab-hint">滚上滚下试试进出行为</span>
+            <button class="btn" data-replay="toggle">回到起点</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 04 gsap-plugins ===== -->
+<section class="skill-block" id="skill-plugins">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">04</span>
+      <h2><code>gsap-plugins</code><span class="s-sub">布局翻转、拖拽与文本/SVG 特效</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>GSAP 插件生态的总入口：<strong>Flip</strong>（布局翻转）、<strong>Draggable</strong>（拖拽）、<strong>ScrollTo / ScrollSmoother</strong>（滚动）、<strong>SplitText / ScrambleText</strong>（文本）、<strong>DrawSVG / MorphSVG / MotionPath</strong>（SVG）、<strong>CustomEase</strong>（自定义缓动）、<strong>Physics2D</strong>（物理）等。自 Webflow 收购起全部插件免费，无需会员与注册。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>布局状态切换（列表重排、网格展开折叠）→ Flip</li>
+          <li>拖拽 / 滑块 / 可重排列表 → Draggable</li>
+          <li>逐字逐词文本动画、描边绘制、形状形变 → SplitText / DrawSVG / MorphSVG</li>
+        </ul>
+        <h3>关键 API</h3>
+        <pre>gsap.registerPlugin(Flip, Draggable);
+
+const state = Flip.getState(".item");
+// 改变 DOM（重排 / 增删 / 换 class）
+Flip.from(state, { duration: 0.5, ease: "power2.inOut" });
+
+Draggable.create(".knob", { type: "x", bounds: "#stage", inertia: true });</pre>
+        <h3>官方最佳实践</h3>
+        <ul class="do-list">
+          <li>每个插件使用前都 <strong>gsap.registerPlugin()</strong> 注册</li>
+          <li>Flip 三步骤：<strong>getState → 改 DOM → from</strong></li>
+          <li>组件卸载时 revert 插件实例（如 SplitText.revert()）</li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">core</span><span class="tag-pill">scrolltrigger</span>
+      </div>
+      <div class="samples">
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · FLIP</div>
+          <h3>布局翻转动画</h3>
+          <p class="lab-desc">记录状态 → 打乱 DOM → Flip 平滑补间。还原同理，全程无手工坐标。</p>
+          <div class="stage tall" data-stage="flip" data-h="200">
+            <div class="flip-grid" data-el="flip-grid">
+              <div class="flip-item" data-id="1">1</div>
+              <div class="flip-item" data-id="2">2</div>
+              <div class="flip-item" data-id="3">3</div>
+              <div class="flip-item" data-id="4">4</div>
+              <div class="flip-item" data-id="5">5</div>
+              <div class="flip-item" data-id="6">6</div>
+              <div class="flip-item" data-id="7">7</div>
+              <div class="flip-item" data-id="8">8</div>
+            </div>
+          </div>
+          <pre class="lab-code"><span class="c-k">const</span> state = <span class="c-k">Flip</span>.getState(<span class="c-s">items</span>);
+<span class="c-c">// 改 DOM：打乱顺序</span>
+shuffle(<span class="c-s">items</span>) <span class="c-c">// items.forEach(...) 重新 append</span>
+<span class="c-k">Flip</span>.from(state, { duration: <span class="c-p">0.5</span>, ease: <span class="c-s">"power2.inOut"</span> });</pre>
+          <div class="lab-actions">
+            <div class="ctrl-group">
+              <button class="btn" data-flip="shuffle">打乱</button>
+              <button class="btn" data-flip="reset">还原</button>
+            </div>
+          </div>
+        </article>
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · DRAGGABLE</div>
+          <h3>拖拽 + 边界约束</h3>
+          <p class="lab-desc">方块可在舞台内任意拖动，碰到边界有回弹阻力（edgeResistance）。</p>
+          <div class="stage" data-stage="drag" data-h="170">
+            <div class="drag-box" data-el="drag-box">拖我</div>
+          </div>
+          <pre class="lab-code"><span class="c-k">Draggable</span>.create(<span class="c-s">box</span>, {
+  type: <span class="c-s">"x,y"</span>,
+  bounds: <span class="c-s">stage</span>,          <span class="c-c">// 限制在舞台内</span>
+  edgeResistance: <span class="c-p">0.7</span>     <span class="c-c">// 边界回弹阻力</span>
+});</pre>
+          <div class="lab-actions">
+            <span class="lab-hint">鼠标 / 触屏均可拖动</span>
+            <button class="btn" data-replay="drag">回到中心</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 05 gsap-utils ===== -->
+<section class="skill-block" id="skill-utils">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">05</span>
+      <h2><code>gsap-utils</code><span class="s-sub">数学与数组工具函数</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>一组纯函数：<strong>clamp</strong>（夹取）、<strong>mapRange</strong>（区间映射）、<strong>normalize / interpolate</strong>（归一化 / 插值）、<strong>random / snap / shuffle</strong>（随机 / 吸附 / 打乱）、<strong>wrap</strong>（循环取值）、<strong>toArray / selector / pipe</strong>（集合处理）。无需注册，直接 <code>gsap.utils.xxx()</code>。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>把滑块 / 滚动进度映射成动画值（mapRange）</li>
+          <li>把数值夹在安全区间、吸附到网格（clamp / snap）</li>
+          <li>随机取值或按函数式值写进 tween vars</li>
+        </ul>
+        <h3>关键 API</h3>
+        <pre>gsap.utils.clamp(0, 100, 150);              <span class="c-c">// 100</span>
+gsap.utils.mapRange(0, 100, 0, 260, 50);    <span class="c-c">// 130</span>
+gsap.utils.interpolate("#0AE448", "#7CF9AB", 0.5);
+gsap.utils.random(-100, 100);               <span class="c-c">// 随机数</span>
+const map = gsap.utils.mapRange(0, 1, 0, 360); <span class="c-c">// 省略取值 = 返回函数</span></pre>
+        <h3>官方最佳实践</h3>
+        <ul class="do-list">
+          <li>同样的映射/夹取多用时，省略最后一个参数拿<strong>可复用函数</strong></li>
+          <li>random 想要可复用函数，末尾传 <strong>true</strong>（唯一例外）</li>
+          <li>mapRange / normalize 只处理数字，带单位用 getUnit / unitize</li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">core</span><span class="tag-pill">scrolltrigger</span>
+      </div>
+      <div class="samples">
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · MAPRANGE</div>
+          <h3>滑块驱动动画</h3>
+          <p class="lab-desc">拖动滑块：mapRange 把 0–100 映射成位移，interpolate 在两种颜色间插值。</p>
+          <div class="stage" data-stage="maprange" data-h="150">
+            <div class="cell" data-el="mr-box"></div>
+          </div>
+          <div class="slider-row">
+            <input type="range" data-el="mr-slider" min="0" max="100" value="0" aria-label="映射进度">
+            <span class="val" data-el="mr-val">0</span>
+          </div>
+          <pre class="lab-code"><span class="c-k">const</span> x = <span class="c-k">gsap.utils</span>.<span class="c-k">mapRange</span>(<span class="c-p">0, 100, 0, 260</span>, v);
+<span class="c-k">const</span> color = <span class="c-k">gsap.utils</span>.<span class="c-k">interpolate</span>(<span class="c-s">"#0AE448"</span>, <span class="c-s">"#7CF9AB"</span>, v / 100);
+<span class="c-k">gsap</span>.set(<span class="c-s">box</span>, { x, backgroundColor: color });</pre>
+          <div class="lab-actions">
+            <span class="lab-hint">原生 range 输入，即时映射</span>
+          </div>
+        </article>
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · RANDOM</div>
+          <h3>随机变换</h3>
+          <p class="lab-desc">每次点击，六个方块各自随机位移、旋转与颜色——全部由 gsap.utils.random 生成。</p>
+          <div class="stage row" data-stage="random" data-h="150">
+            <div class="cell" data-i="0" style="height:38px;width:38px"></div>
+            <div class="cell c2" data-i="1" style="height:38px;width:38px"></div>
+            <div class="cell" data-i="2" style="height:38px;width:38px"></div>
+            <div class="cell c4" data-i="3" style="height:38px;width:38px"></div>
+            <div class="cell c5" data-i="4" style="height:38px;width:38px"></div>
+            <div class="cell c3" data-i="5" style="height:38px;width:38px"></div>
+          </div>
+          <pre class="lab-code"><span class="c-k">gsap</span>.to(<span class="c-s">items</span>, {
+  x: <span class="c-k">gsap.utils</span>.<span class="c-k">random</span>(<span class="c-p">-60, 60</span>),
+  rotation: <span class="c-k">gsap.utils</span>.<span class="c-k">random</span>(<span class="c-p">-180, 180</span>),
+  backgroundColor: <span class="c-k">gsap.utils</span>.<span class="c-k">random</span>([<span class="c-s">"#0AE448"</span>, <span class="c-s">"#7CF9AB"</span>, <span class="c-s">"#3A7D50"</span>]),
+  duration: <span class="c-p">0.6</span>, stagger: <span class="c-p">0.05</span>, overwrite: <span class="c-p">true</span>
+});</pre>
+          <div class="lab-actions">
+            <span class="lab-hint">每次结果都不同</span>
+            <button class="btn" data-replay="random">随机变换</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 06 gsap-react ===== -->
+<section class="skill-block" id="skill-react">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">06</span>
+      <h2><code>gsap-react</code><span class="s-sub">useGSAP 钩子与组件生命周期</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>React / Next.js 中正确使用 GSAP 的官方模式：优先 <code>@gsap/react</code> 的 <strong>useGSAP</strong> 钩子，配合 <strong>scope</strong> 限定选择器、<strong>contextSafe</strong> 包裹回调，卸载时自动 revert 全部动画与 ScrollTrigger。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>React 组件里做任何 GSAP 动画</li>
+          <li>需要避免卸载后动画泄漏、报错（React 18 StrictMode 双执行）</li>
+          <li>Next.js SSR 场景——GSAP 只允许在客户端跑</li>
+        </ul>
+        <h3>关键模式</h3>
+        <ul class="do-list">
+          <li>目标用 <strong>ref</strong>，选择器必须有 <strong>scope</strong></li>
+          <li>不用 useGSAP 时：useEffect + <strong>gsap.context</strong>，cleanup 里 <strong>ctx.revert()</strong></li>
+          <li>事件回调里新建动画用 <strong>contextSafe</strong> 包裹</li>
+          <li>SSR：所有 gsap.* 调用只出现在 useEffect / useGSAP 内</li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">core</span><span class="tag-pill">timeline</span><span class="tag-pill">frameworks</span>
+      </div>
+      <div class="samples">
+        <article class="code-show wide">
+          <div class="lab-no">OFFICIAL PATTERN</div>
+          <h3>useGSAP：挂载创建、卸载自动清理</h3>
+          <p class="lab-desc">这是官方推荐写法（需在 React 工程中运行，纯静态页无法现场执行）。scope 保证选择器只匹配组件内部。</p>
+          <pre>import { useGSAP } from "@gsap/react";
+gsap.registerPlugin(useGSAP);          <span class="c-c">// 应用入口注册一次</span>
+
+const containerRef = useRef(null);
+
+useGSAP(() =&gt; {
+  gsap.to(".box", { x: 100 });
+  gsap.from(".item", { autoAlpha: 0, y: 20, stagger: 0.1 });
+}, { scope: containerRef });           <span class="c-c">// 选择器只匹配组件内部</span></pre>
+          <div class="points">
+            <div class="pt"><strong>scope</strong>ref 或元素作作用域，".box" 不会误伤组件外的同名元素</div>
+            <div class="pt"><strong>自动清理</strong>卸载时 revert 动画与 ScrollTrigger，不留泄漏、兼容 StrictMode</div>
+            <div class="pt"><strong>contextSafe</strong>事件回调里创建的动画用它包裹，卸载后安全 no-op</div>
+            <div class="pt"><strong>SSR 安全</strong>useGSAP 只在客户端执行；服务端渲染期间不碰 gsap.*</div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 07 gsap-performance ===== -->
+<section class="skill-block" id="skill-performance">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">07</span>
+      <h2><code>gsap-performance</code><span class="s-sub">60fps 的动画写法</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>让动画保持流畅的性能指南：只动 <strong>transform 与 opacity</strong>（交给合成器、跳过布局）、用 <strong>stagger</strong> 批量而非逐条 delay、高频更新用 <strong>gsap.quickTo()</strong> 复用单个 tween、适时清理离屏动画。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>动画掉帧、低端设备卡顿时排查</li>
+          <li>大量元素同时动画（列表、网格、粒子）</li>
+          <li>鼠标跟随、滚动绑定这类高频触发场景</li>
+        </ul>
+        <h3>关键做法</h3>
+        <ul class="do-list">
+          <li>移动用 <strong>x / y</strong>，别用 top / left / width / height</li>
+          <li>动画元素加 <strong>will-change: transform</strong>，但别全站乱加</li>
+          <li>高频属性更新用 <strong>gsap.quickTo()</strong></li>
+          <li>布局变化后按需 <strong>ScrollTrigger.refresh()</strong>（防抖）</li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">core</span><span class="tag-pill">scrolltrigger</span>
+      </div>
+      <div class="samples">
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · BATCH</div>
+          <h3>120 元素批量动画</h3>
+          <p class="lab-desc">一个 tween + stagger 驱动 120 个方块，全部只动 transform 属性——即使量大也保持流畅。</p>
+          <div class="stage tall" data-stage="batch" data-h="200" data-el="batch-stage">
+            <div class="center-note">点击「运行」生成并动画 120 个方块</div>
+          </div>
+          <pre class="lab-code"><span class="c-k">gsap</span>.to(<span class="c-s">".mini"</span>, {                 <span class="c-c">// 120 个目标，一条 tween</span>
+  x: <span class="c-s">"random(-14, 14)"</span>, rotation: <span class="c-s">"random(-120, 120)"</span>,
+  duration: <span class="c-p">1.2</span>, ease: <span class="c-s">"power1.inOut"</span>,
+  stagger: { each: <span class="c-p">0.006</span> }
+});                              <span class="c-c">// 只动 transform，不触发布局</span></pre>
+          <div class="lab-actions">
+            <div class="ctrl-group">
+              <button class="btn" data-batch="run">运行批量动画</button>
+              <button class="btn" data-batch="clear">清场</button>
+            </div>
+          </div>
+        </article>
+        <article class="sample-card">
+          <div class="lab-no">SAMPLE · QUICKTO</div>
+          <h3>鼠标平滑跟随</h3>
+          <p class="lab-desc">高频 mousemove 下，quickTo 复用同一个 tween，只更新目标值——比每帧新建 tween 高效得多。</p>
+          <div class="stage tall" data-stage="quick" data-h="200">
+            <div class="qk-dot" data-el="qk-dot"></div>
+            <div class="center-note">在区域内移动鼠标，圆点平滑跟随</div>
+          </div>
+          <pre class="lab-code"><span class="c-k">const</span> xTo = <span class="c-k">gsap</span>.<span class="c-k">quickTo</span>(<span class="c-s">dot</span>, <span class="c-s">"x"</span>, { duration: <span class="c-p">0.4</span>, ease: <span class="c-s">"power3"</span> });
+<span class="c-k">const</span> yTo = <span class="c-k">gsap</span>.<span class="c-k">quickTo</span>(<span class="c-s">dot</span>, <span class="c-s">"y"</span>, { duration: <span class="c-p">0.4</span>, ease: <span class="c-s">"power3"</span> });
+stage.addEventListener(<span class="c-s">"mousemove"</span>, e =&gt; {
+  xTo(e.offsetX - 10); yTo(e.offsetY - 10);   <span class="c-c">// 每帧只改目标值</span>
+});</pre>
+          <div class="lab-actions">
+            <span class="lab-hint">桌面端体验最佳</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 08 gsap-frameworks ===== -->
+<section class="skill-block" id="skill-frameworks">
+  <div class="skill-block-inner">
+    <div class="skill-head">
+      <span class="s-no">08</span>
+      <h2><code>gsap-frameworks</code><span class="s-sub">Vue / Svelte / Nuxt 集成</span></h2>
+    </div>
+    <div class="skill-body">
+      <div class="skill-intro">
+        <h3>它是什么</h3>
+        <p>Vue、Svelte、Nuxt 等非 React 框架中集成 GSAP 的官方模式。三条铁律：<strong>DOM 就绪后创建</strong>（onMounted / onMount）、<strong>卸载时清理</strong>（ctx.revert()）、<strong>选择器限定作用域</strong>（gsap.context(scope)）。</p>
+        <h3>何时用</h3>
+        <ul>
+          <li>Vue 3（组合式 API 或 script setup）组件动画</li>
+          <li>Svelte / SvelteKit 组件动画</li>
+          <li>Nuxt 4 需要懒加载插件、SSR 安全的场景</li>
+        </ul>
+        <h3>关键做法</h3>
+        <ul class="do-list">
+          <li>onMounted 里 <strong>gsap.context(回调, 容器 ref)</strong></li>
+          <li>onUnmounted / onMount 返回函数里 <strong>ctx.revert()</strong></li>
+          <li>插件在应用入口注册一次；不常用的插件懒加载（官方 Nuxt composable）</li>
+        </ul>
+        <h3>相关</h3>
+        <span class="tag-pill">core</span><span class="tag-pill">react</span><span class="tag-pill">scrolltrigger</span>
+      </div>
+      <div class="samples">
+        <article class="code-show wide">
+          <div class="lab-no">OFFICIAL PATTERN</div>
+          <h3>Vue 3 + Svelte：生命周期与清理</h3>
+          <p class="lab-desc">官方推荐写法（需在对应框架工程中运行）。仓库内 examples/vue、examples/nuxt 有可运行工程。</p>
+          <pre>// Vue 3（组合式 API）
+import { onMounted, onUnmounted, ref } from "vue";
+const container = ref(null);
+let ctx;
+onMounted(() =&gt; {
+  ctx = gsap.context(() =&gt; {
+    gsap.to(".box", { x: 100 });
+    gsap.from(".item", { autoAlpha: 0, y: 20, stagger: 0.1 });
+  }, container.value);              <span class="c-c">// 作用域：只匹配组件内</span>
+});
+onUnmounted(() =&gt; ctx?.revert());  <span class="c-c">// 卸载清理</span>
+
+// Svelte
+onMount(() =&gt; {
+  const ctx = gsap.context(() =&gt; gsap.to(".box", { x: 100 }), container);
+  return () =&gt; ctx.revert();        <span class="c-c">// onMount 返回清理函数</span>
+});</pre>
+          <div class="points">
+            <div class="pt"><strong>gsap.context(scope)</strong>选择器只在组件子树内匹配，避免跨组件误伤</div>
+            <div class="pt"><strong>卸载 revert</strong>动画与 ScrollTrigger 全部杀掉、内联样式还原，不留泄漏</div>
+            <div class="pt"><strong>插件注册一次</strong>应用入口注册；懒加载不常用插件减小首包</div>
+            <div class="pt"><strong>Nuxt 4</strong>官方 useGSAP 组合式函数 + lazyLoadPlugin 已内置在 examples/nuxt</div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot-wrap">
+    <div class="foot-links">
+      <a href="index.html">返回首页</a>
+      <a href="https://gsap.com" target="_blank" rel="noopener">gsap.com</a>
+      <a href="https://github.com/greensock/gsap-skills" target="_blank" rel="noopener">上游仓库</a>
+      <a href="https://github.com/Ri1035/gsap-skills-demo" target="_blank" rel="noopener">本仓库</a>
+    </div>
+    <div class="foot-note">GSAP 100% 免费 · 含全部插件 · MIT License</div>
+  </div>
+</footer>
+
+<script src="./assets/vendor/gsap.min.js"></script>
+<script src="./assets/vendor/ScrollTrigger.min.js"></script>
+<script src="./assets/vendor/Flip.min.js"></script>
+<script src="./assets/vendor/Draggable.min.js"></script>
+<script>
+(function(){
+  if (!window.gsap) return;
+  gsap.registerPlugin(ScrollTrigger, Flip, Draggable);
+  var mm = gsap.matchMedia();
+
+  /* 页首入场（仅偏好动效用户） */
+  mm.add('(prefers-reduced-motion: no-preference)', function(){
+    gsap.from('.page-head h1', { y: 18, autoAlpha: 0, duration: 0.6, ease: 'power3.out' });
+    gsap.from('.skill-jump a', { y: 10, autoAlpha: 0, stagger: 0.04, duration: 0.4, delay: 0.1 });
+  });
+
+  /* ===== 01 core · 缓动对比 ===== */
+  var easeStage = document.querySelector('[data-stage="ease"]');
+  if (easeStage) {
+    var easeCells = Array.prototype.slice.call(easeStage.querySelectorAll('.cell'));
+    easeCells.forEach(function(cell){
+      cell.setAttribute('data-label', cell.getAttribute('data-ease'));
+    });
+    document.querySelector('[data-replay="ease"]').addEventListener('click', function(){
+      easeCells.forEach(function(cell){
+        gsap.set(cell, { x: 0 });
+        gsap.to(cell, { x: 150, duration: 0.9, ease: cell.getAttribute('data-ease'), overwrite: true });
+      });
+    });
+  }
+
+  /* ===== 01 core · 函数化取值 ===== */
+  var fnStage = document.querySelector('[data-stage="fnval"]');
+  if (fnStage) {
+    var fnCells = Array.prototype.slice.call(fnStage.querySelectorAll('.cell'));
+    document.querySelector('[data-replay="fnval"]').addEventListener('click', function(){
+      gsap.set(fnCells, { x: 0, y: 0 });
+      gsap.to(fnCells, {
+        x: function(i){ return i * 26; },
+        y: function(i){ return i % 2 ? -14 : 14; },
+        stagger: 0.06, duration: 0.5, ease: 'power2.out', overwrite: true
+      });
+    });
+  }
+
+  /* ===== 02 timeline · 播放控制 ===== */
+  var pbStage = document.querySelector('[data-stage="playback"]');
+  if (pbStage) {
+    var pbBox = document.querySelector('[data-el="pb-box"]');
+    gsap.set(pbBox, { left: 24, top: '50%', xPercent: -50, yPercent: -50 });
+    var pbTl = gsap.timeline({ paused: true, defaults: { duration: 0.5, ease: 'power2.out' } });
+    pbTl.to(pbBox, { x: 170, duration: 0.7 })
+        .to(pbBox, { backgroundColor: '#7CF9AB' })
+        .to(pbBox, { scale: 0.55 }, '+=0.1');
+    document.querySelector('[data-pb="play"]').addEventListener('click', function(){ pbTl.play(); });
+    document.querySelector('[data-pb="pause"]').addEventListener('click', function(){ pbTl.pause(); });
+    document.querySelector('[data-pb="reverse"]').addEventListener('click', function(){ pbTl.reverse(); });
+    document.querySelector('[data-pb="restart"]').addEventListener('click', function(){
+      gsap.set(pbBox, { x: 0, scale: 1, backgroundColor: '#0AE448' });
+      pbTl.restart();
+    });
+  }
+
+  /* ===== 02 timeline · position 参数 ===== */
+  var posStage = document.querySelector('[data-stage="position"]');
+  if (posStage) {
+    var posEls = ['pos-a', 'pos-b', 'pos-c'].map(function(id){ return document.querySelector('[data-el="' + id + '"]'); });
+    document.querySelector('[data-replay="position"]').addEventListener('click', function(){
+      gsap.killTweensOf(posEls);
+      gsap.set(posEls, { x: 0 });
+      var tl = gsap.timeline();
+      tl.to(posEls[0], { x: 150, duration: 0.8, ease: 'power2.out' })
+        .to(posEls[1], { x: 150, duration: 0.8, ease: 'power2.out' }, '<0.2')
+        .to(posEls[2], { x: 150, duration: 0.8, ease: 'power2.out' });
+    });
+  }
+
+  /* ===== 03 scrolltrigger · pin ===== */
+  var pinStage = document.querySelector('[data-stage="pin"]');
+  if (pinStage) {
+    var pinFill = document.querySelector('[data-el="pin-fill"]');
+    var pinNum = document.querySelector('[data-el="pin-num"]');
+    var pinTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: pinStage, start: 'top top', end: '+=500',
+        pin: true, scrub: 1,
+        onUpdate: function(self){ pinNum.textContent = Math.round(self.progress * 100) + '%'; }
+      }
+    });
+    pinTl.fromTo(pinFill, { scaleX: 0 }, { scaleX: 1, ease: 'none' });
+    document.querySelector('[data-replay="pin"]').addEventListener('click', function(){
+      var top = pinStage.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
+  }
+
+  /* ===== 03 scrolltrigger · toggleActions ===== */
+  var tgStage = document.querySelector('[data-stage="toggle"]');
+  if (tgStage) {
+    var tgBox = document.querySelector('[data-el="tg-box"]');
+    gsap.set(tgBox, { left: 24, top: '50%', xPercent: -50, yPercent: -50 });
+    gsap.to(tgBox, {
+      x: 200, rotation: 180, ease: 'power2.out',
+      scrollTrigger: { trigger: tgStage, start: 'top 70%', toggleActions: 'play none none reverse' }
+    });
+    document.querySelector('[data-replay="toggle"]').addEventListener('click', function(){
+      var top = tgStage.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.7;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
+  }
+
+  /* ===== 04 plugins · Flip ===== */
+  var flipGrid = document.querySelector('[data-el="flip-grid"]');
+  if (flipGrid) {
+    var flipItems = Array.prototype.slice.call(flipGrid.children);
+    function doFlip(reset){
+      var state = Flip.getState(flipItems);
+      var arr = flipItems.slice();
+      if (reset) {
+        arr.sort(function(a, b){ return a.getAttribute('data-id') - b.getAttribute('data-id'); });
+      } else {
+        for (var i = arr.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+        }
+      }
+      arr.forEach(function(el){ flipGrid.appendChild(el); });
+      Flip.from(state, { duration: 0.5, ease: 'power2.inOut', stagger: 0.02 });
+    }
+    document.querySelector('[data-flip="shuffle"]').addEventListener('click', function(){ doFlip(false); });
+    document.querySelector('[data-flip="reset"]').addEventListener('click', function(){ doFlip(true); });
+  }
+
+  /* ===== 04 plugins · Draggable ===== */
+  var dragBox = document.querySelector('[data-el="drag-box"]');
+  if (dragBox) {
+    var dragStage = document.querySelector('[data-stage="drag"]');
+    Draggable.create(dragBox, { type: 'x,y', bounds: dragStage, edgeResistance: 0.7, cursor: 'grab' });
+    document.querySelector('[data-replay="drag"]').addEventListener('click', function(){
+      gsap.to(dragBox, { x: 0, y: 0, duration: 0.5, ease: 'power2.out', overwrite: true });
+    });
+  }
+
+  /* ===== 05 utils · mapRange 滑块 ===== */
+  var mrStage = document.querySelector('[data-stage="maprange"]');
+  if (mrStage) {
+    var mrBox = document.querySelector('[data-el="mr-box"]');
+    var mrSlider = document.querySelector('[data-el="mr-slider"]');
+    var mrVal = document.querySelector('[data-el="mr-val"]');
+    gsap.set(mrBox, { left: 24, top: '50%', xPercent: -50, yPercent: -50 });
+    mrSlider.addEventListener('input', function(){
+      var v = parseFloat(mrSlider.value);
+      mrVal.textContent = v;
+      var maxX = mrStage.clientWidth - 24 - 44 - 6;
+      gsap.set(mrBox, {
+        x: gsap.utils.mapRange(0, 100, 0, maxX, v),
+        backgroundColor: gsap.utils.interpolate('#0AE448', '#7CF9AB', v / 100)
+      });
+    });
+  }
+
+  /* ===== 05 utils · random ===== */
+  var rndStage = document.querySelector('[data-stage="random"]');
+  if (rndStage) {
+    var rndCells = rndStage.querySelectorAll('.cell');
+    document.querySelector('[data-replay="random"]').addEventListener('click', function(){
+      gsap.to(rndCells, {
+        x: gsap.utils.random(-60, 60),
+        y: gsap.utils.random(-24, 24),
+        rotation: gsap.utils.random(-180, 180),
+        backgroundColor: gsap.utils.random(['#0AE448', '#7CF9AB', '#3A7D50', '#DFE8E0']),
+        duration: 0.6, stagger: 0.05, ease: 'power2.out', overwrite: true
+      });
+    });
+  }
+
+  /* ===== 07 performance · 批量动画 ===== */
+  var batchStage = document.querySelector('[data-el="batch-stage"]');
+  if (batchStage) {
+    var batchNote = batchStage.querySelector('.center-note');
+    var miniEls = [];
+    document.querySelector('[data-batch="run"]').addEventListener('click', function(){
+      if (miniEls.length) return;
+      if (batchNote) batchNote.style.display = 'none';
+      var cols = Math.floor(batchStage.clientWidth / 18);
+      var rows = Math.floor(batchStage.clientHeight / 18);
+      var total = Math.min(cols * rows, 160);
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < total; i++) {
+        var m = document.createElement('div');
+        m.className = 'mini';
+        m.style.left = (6 + (i % cols) * 18) + 'px';
+        m.style.top = (6 + Math.floor(i / cols) * 18) + 'px';
+        frag.appendChild(m);
+        miniEls.push(m);
+      }
+      batchStage.appendChild(frag);
+      gsap.fromTo(miniEls, { scale: 0.6, autoAlpha: 0.4 }, {
+        scale: 1, autoAlpha: 1, duration: 0.5, ease: 'power2.out', stagger: { each: 0.004, from: 'center' }
+      });
+      gsap.to(miniEls, {
+        x: 'random(-14, 14)', rotation: 'random(-120, 120)',
+        duration: 1.2, ease: 'power1.inOut', stagger: { each: 0.006 }, delay: 0.55
+      });
+    });
+    document.querySelector('[data-batch="clear"]').addEventListener('click', function(){
+      gsap.killTweensOf(miniEls);
+      miniEls.forEach(function(m){ m.remove(); });
+      miniEls = [];
+      if (batchNote) batchNote.style.display = '';
+    });
+  }
+
+  /* ===== 07 performance · quickTo 跟随 ===== */
+  var qkStage = document.querySelector('[data-stage="quick"]');
+  if (qkStage) {
+    var qkDot = document.querySelector('[data-el="qk-dot"]');
+    var xTo = gsap.quickTo(qkDot, 'x', { duration: 0.4, ease: 'power3' });
+    var yTo = gsap.quickTo(qkDot, 'y', { duration: 0.4, ease: 'power3' });
+    qkStage.addEventListener('mousemove', function(e){
+      xTo(e.offsetX - 10); yTo(e.offsetY - 10);
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

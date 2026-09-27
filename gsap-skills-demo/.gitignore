@@ -28,3 +28,5 @@ build/
 tmp/
 temp/
 *.tmp
+# Local preview screenshots
+_shots/

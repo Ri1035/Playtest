@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>文字绳子交互效果 · 优化版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #f6f1e3;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  #container {
+    position: fixed;
+    inset: 0;
+  }
+  /* 绳子连线（SVG）位于字符下方，不拦截指针事件 */
+  #rope {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  #rope polyline {
+    fill: none;
+    stroke: rgba(139, 69, 19, 0.35);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  #container span {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    font-size: 22px;
+    line-height: 1.6;
+    font-family: "Songti SC", "STSong", "SimSun", serif;
+    color: #3d3d3d;
+    cursor: grab;
+    white-space: pre;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    transition: color 0.15s ease;
+  }
+  #container span.dragging {
+    cursor: grabbing;
+    color: #8a2b2b;
+    text-shadow: 0 0 8px rgba(138, 43, 43, 0.35);
+    font-weight: 600;
+  }
+  .hint {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: rgba(61, 61, 61, 0.45);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <svg id="rope" aria-hidden="true"><polyline></polyline></svg>
+</div>
+<div class="hint">拖拽文字拉绳子 · F 解开 · R 恢复原位</div>
+<script>
+(function () {
+  'use strict';
+
+  // ============ 配置（定制效果时修改这里） ============
+  var CONFIG = {
+    TEXT: '晋太元中，武陵人捕鱼为业。缘溪行，忘路之远近。忽逢桃花林，夹岸数百步，中无杂树，芳草鲜美，落英缤纷。渔人甚异之，复前行，欲穷其林。林尽水源，便得一山，山有小口，仿佛若有光。',
+    FONT_SIZE: 22,           // 字号（px）
+    LINE_HEIGHT: 1.6,        // 行高倍率
+    MAX_WIDTH: 900,          // 一行最大宽度（px），超出换行
+    CHAR_GAP_RATIO: 0.15,    // 字符间距 = 字符宽度 × 该比例
+    GRAVITY: 0.15,           // 重力（Verlet 每物理步的 y 加速度）
+    DAMPING: 0.97,           // 速度阻尼系数
+    ITERATIONS: 12,          // 距离约束每帧迭代次数
+    RADIUS: 8,               // 字符碰撞半径（px）
+    UNLOCK_THRESHOLD: 18,    // 拖拽拉断阈值：超出静止绳长该值即解锁相邻字符
+    PHYSICS_HZ: 120,         // 物理固定时间步长（Hz）
+    ZIGZAG_FLIP_EVEN: false, // true=蛇形反转偶数行；false=反转奇数行
+    RESTORE_SPEED: 0.14,     // R 键恢复动画的插值速度（越大越快）
+    SHOW_ROPE: true          // 是否显示字符间绳子连线
+  };
+
+  var container = document.getElementById('container');
+  var polyline = document.querySelector('#rope polyline');
+
+  // 每个字符是一个物理粒子：{ ch, w, x, y, ox, oy, px, py, readingIdx, locked }
+  var letters = [];
+  var els = [];
+
+  // 物理蛇形顺序（order 中相邻即绳子相邻）与静止绳长
+  var order = [];
+  var restLengths = [];
+
+  // 拖拽状态：pointerId -> { idx, offsetX, offsetY }；draggedIdx 为被拖拽字母索引集合
+  var drags = new Map();
+  var draggedIdx = new Set();
+
+  // R 键恢复动画是否进行中
+  var restoring = false;
+
+  // ---------- 行分组（阅读顺序分行，蛇形排列共用同一分组） ----------
+  function buildLines() {
+    var lines = [];
+    var line = [];
+    var w = 0;
+    for (var i = 0; i < letters.length; i++) {
+      var gap = line.length ? letters[i].w * CONFIG.CHAR_GAP_RATIO : 0;
+      if (line.length && w + gap + letters[i].w > CONFIG.MAX_WIDTH) {
+        lines.push(line);
+        line = [];
+        w = 0;
+      }
+      line.push(i);
+      w += gap + letters[i].w;
+    }
+    if (line.length) lines.push(line);
+    return lines;
+  }
+
+  function lineWidth(line) {
+    var w = 0;
+    line.forEach(function (idx, k) {
+      w += letters[idx].w;
+      if (k > 0) w += letters[idx].w * CONFIG.CHAR_GAP_RATIO;
+    });
+    return w;
+  }
+
+  // ---------- 蛇形排列：生成物理连接顺序 ----------
+  function buildZigzagOrder(lines) {
+    var seq = [];
+    lines.forEach(function (line, li) {
+      var reversed = CONFIG.ZIGZAG_FLIP_EVEN ? li % 2 === 0 : li % 2 === 1;
+      if (reversed) seq.push.apply(seq, line.slice().reverse());
+      else seq.push.apply(seq, line);
+    });
+    return seq;
+  }
+
+  // ---------- 阅读顺序初始布局 ----------
+  function layoutByReading(lines) {
+    var lineH = CONFIG.FONT_SIZE * CONFIG.LINE_HEIGHT;
+    var totalH = lines.length * lineH;
+    var y = Math.max((window.innerHeight - totalH) / 2, 8);
+    lines.forEach(function (line) {
+      var x = (window.innerWidth - lineWidth(line)) / 2;
+      line.forEach(function (idx) {
+        var l = letters[idx];
+        l.x = l.ox = l.px = x;
+        l.y = l.oy = l.py = y;
+        x += letters[idx].w * (1 + CONFIG.CHAR_GAP_RATIO);
+      });
+      y += lineH;
+    });
+  }
+
+  // ---------- Verlet 积分（位置式物理模拟） ----------
+  function integrate() {
+    for (var i = 0; i < letters.length; i++) {
+      var l = letters[i];
+      if (l.locked || draggedIdx.has(i)) continue;
+      var vx = (l.x - l.px) * CONFIG.DAMPING;
+      var vy = (l.y - l.py) * CONFIG.DAMPING;
+      l.px = l.x;
+      l.py = l.y;
+      l.x += vx;
+      l.y += vy + CONFIG.GRAVITY;
+    }
+  }
+
+  // ---------- 距离约束（绳子效果的核心） ----------
+  function satisfyConstraints() {
+    for (var iter = 0; iter < CONFIG.ITERATIONS; iter++) {
+      for (var i = 0; i < order.length - 1; i++) {
+        var a = letters[order[i]];
+        var b = letters[order[i + 1]];
+        if (a.locked && b.locked) continue;
+        var dx = b.x - a.x;
+        var dy = b.y - a.y;
+        var dist = Math.hypot(dx, dy);
+        if (dist < 0.0001) continue;
+        var diff = (dist - restLengths[i]) / dist;
+        var aLocked = a.locked || draggedIdx.has(order[i]);
+        var bLocked = b.locked || draggedIdx.has(order[i + 1]);
+        if (!aLocked && !bLocked) {
+          var ax = dx * diff * 0.5;
+          var ay = dy * diff * 0.5;
+          a.x += ax; a.y += ay;
+          b.x -= ax; b.y -= ay;
+        } else if (!aLocked) {
+          a.x += dx * diff; a.y += dy * diff;
+        } else if (!bLocked) {
+          b.x -= dx * diff; b.y -= dy * diff;
+        }
+      }
+    }
+  }
+
+  // ---------- 碰撞检测（防止非相邻字符重叠） ----------
+  function resolveCollisions() {
+    var minDist = CONFIG.RADIUS * 2;
+    for (var i = 0; i < order.length; i++) {
+      for (var j = i + 1; j < order.length; j++) {
+        if (Math.abs(i - j) === 1) continue; // 蛇形相邻由距离约束处理
+        var a = letters[order[i]];
+        var b = letters[order[j]];
+        if (a.locked && b.locked) continue;
+        var dx = b.x - a.x;
+        var dy = b.y - a.y;
+        var dist = Math.hypot(dx, dy);
+        if (dist >= minDist || dist < 0.0001) continue;
+        var push = (minDist - dist) / dist;
+        var aLocked = a.locked || draggedIdx.has(order[i]);
+        var bLocked = b.locked || draggedIdx.has(order[j]);
+        if (!aLocked && !bLocked) {
+          var px = dx * push * 0.5, py = dy * push * 0.5;
+          a.x -= px; a.y -= py;
+          b.x += px; b.y += py;
+        } else if (!aLocked) {
+          a.x -= dx * push; a.y -= dy * push;
+        } else if (!bLocked) {
+          b.x += dx * push; b.y += dy * push;
+        }
+      }
+    }
+  }
+
+  // ---------- 解锁传播（拖拽拉断连接） ----------
+  function tryUnlock(idx) {
+    var pos = order.indexOf(idx);
+    if (pos === -1) return;
+    var l = letters[idx];
+    var neighbors = [pos - 1, pos + 1];
+    neighbors.forEach(function (np) {
+      if (np < 0 || np >= order.length) return;
+      var ni = order[np];
+      if (!letters[ni].locked) return;
+      var rest = restLengths[Math.min(pos, np)];
+      var dist = Math.hypot(l.x - letters[ni].x, l.y - letters[ni].y);
+      if (dist > rest + CONFIG.UNLOCK_THRESHOLD) {
+        letters[ni].locked = false;
+      }
+    });
+  }
+
+  // ---------- 物理步进 ----------
+  function step() {
+    integrate();
+    satisfyConstraints();
+    resolveCollisions();
+  }
+
+  // ---------- R 键恢复动画：字符缓动飞回原位并重新锁定 ----------
+  function applyRestore() {
+    var done = true;
+    for (var i = 0; i < letters.length; i++) {
+      var l = letters[i];
+      var dx = l.ox - l.x;
+      var dy = l.oy - l.y;
+      l.x += dx * CONFIG.RESTORE_SPEED;
+      l.y += dy * CONFIG.RESTORE_SPEED;
+      // 同步上一帧位置，消除恢复后的残留速度
+      l.px = l.x;
+      l.py = l.y;
+      if (Math.hypot(dx, dy) > 0.5) done = false;
+    }
+    if (done) {
+      restoring = false;
+      letters.forEach(function (l) { l.locked = true; });
+    }
+  }
+
+  // ---------- 渲染：字符位置 + 绳子连线 ----------
+  function render() {
+    for (var i = 0; i < letters.length; i++) {
+      var l = letters[i];
+      els[i].style.transform = 'translate3d(' + l.x + 'px,' + l.y + 'px,0)';
+    }
+    if (CONFIG.SHOW_ROPE && order.length > 1) {
+      var pts = '';
+      for (var k = 0; k < order.length; k++) {
+        var ll = letters[order[k]];
+        pts += ll.x + ',' + ll.y + ' ';
+      }
+      polyline.setAttribute('points', pts.trim());
+    }
+  }
+
+  // ---------- 交互：Pointer Events 拖拽 ----------
+  container.addEventListener('pointerdown', function (e) {
+    var target = e.target;
+    if (!(target instanceof HTMLSpanElement)) return;
+    var idx = els.indexOf(target);
+    if (idx === -1) return;
+    if (letters[idx].locked) letters[idx].locked = false;
+    var rect = container.getBoundingClientRect();
+    drags.set(e.pointerId, {
+      idx: idx,
+      offsetX: e.clientX - rect.left - letters[idx].x,
+      offsetY: e.clientY - rect.top - letters[idx].y
+    });
+    draggedIdx.add(idx);
+    els[idx].classList.add('dragging');
+    try { target.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+
+  container.addEventListener('pointermove', function (e) {
+    var d = drags.get(e.pointerId);
+    if (!d) return;
+    var rect = container.getBoundingClientRect();
+    var l = letters[d.idx];
+    l.x = e.clientX - rect.left - d.offsetX;
+    l.y = e.clientY - rect.top - d.offsetY;
+    l.px = l.x;
+    l.py = l.y;
+    tryUnlock(d.idx);
+  });
+
+  function endDrag(e) {
+    var d = drags.get(e.pointerId);
+    if (!d) return;
+    drags.delete(e.pointerId);
+    draggedIdx.delete(d.idx);
+    els[d.idx].classList.remove('dragging');
+  }
+  container.addEventListener('pointerup', endDrag);
+  container.addEventListener('pointercancel', endDrag);
+
+  // ---------- 键盘：F 全部解开散落 / R 一键恢复 ----------
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'f' || e.key === 'F') {
+      letters.forEach(function (l) { l.locked = false; });
+    } else if (e.key === 'r' || e.key === 'R') {
+      restoring = true;
+      drags.clear();
+      draggedIdx.clear();
+      els.forEach(function (el) { el.classList.remove('dragging'); });
+    }
+  });
+
+  // ---------- 窗口缩放：按新尺寸重排并复位 ----------
+  window.addEventListener('resize', function () {
+    var lines = buildLines();
+    layoutByReading(lines);
+    restoring = false;
+    drags.clear();
+    draggedIdx.clear();
+    els.forEach(function (el) { el.classList.remove('dragging'); });
+    letters.forEach(function (l) { l.locked = true; });
+    render();
+  });
+
+  // ---------- 固定时间步长主循环（120Hz 物理，保证一致性） ----------
+  var PHYSICS_DT = 1 / CONFIG.PHYSICS_HZ;
+  var lastTime = performance.now();
+  var accumulator = 0;
+
+  function frame(now) {
+    var dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.1) dt = 0.1; // 防止切后台后跳帧爆炸
+    accumulator += dt;
+    while (accumulator >= PHYSICS_DT) {
+      if (restoring) {
+        // 恢复动画期间不施加重力，只做约束防止字符互相穿插
+        satisfyConstraints();
+        resolveCollisions();
+      } else {
+        step();
+      }
+      accumulator -= PHYSICS_DT;
+    }
+    if (restoring) applyRestore();
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- 初始化 ----------
+  function init() {
+    // 1. 渲染每个字符为 span 并测量宽度
+    for (var i = 0; i < CONFIG.TEXT.length; i++) {
+      var ch = CONFIG.TEXT[i];
+      var span = document.createElement('span');
+      span.textContent = ch;
+      container.appendChild(span);
+      letters.push({
+        ch: ch,
+        w: span.offsetWidth || CONFIG.FONT_SIZE,
+        x: 0, y: 0, ox: 0, oy: 0, px: 0, py: 0,
+        readingIdx: letters.length,
+        locked: true
+      });
+      els.push(span);
+    }
+
+    // 2. 行分组 + 蛇形物理顺序
+    var lines = buildLines();
+    order = buildZigzagOrder(lines);
+
+    // 3. 按阅读顺序排版初始位置
+    layoutByReading(lines);
+
+    // 4. 静止绳长 = 蛇形相邻字符的中心距离
+    restLengths = [];
+    for (var k = 0; k < order.length - 1; k++) {
+      var a = letters[order[k]];
+      var b = letters[order[k + 1]];
+      restLengths.push(Math.hypot(b.x - a.x, b.y - a.y) || (a.w + b.w) * 0.5);
+    }
+
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

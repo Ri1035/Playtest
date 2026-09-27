@@ -58,7 +58,7 @@
   }
   .hint {
     position: fixed;
-    bottom: 18px;
+    bottom: 64px;
     left: 50%;
     transform: translateX(-50%);
     font-family: system-ui, -apple-system, sans-serif;
@@ -69,13 +69,57 @@
     white-space: nowrap;
     z-index: 2;
   }
+  /* 底部工具条：自定义诗句 + 绳子开关 */
+  .toolbar {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 2;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .toolbar input {
+    width: 320px;
+    max-width: 60vw;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #3d3d3d;
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(139, 69, 19, 0.25);
+    border-radius: 6px;
+    outline: none;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .toolbar input:focus { border-color: rgba(139, 69, 19, 0.5); background: #fff; }
+  .toolbar button {
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #6b4a2f;
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(139, 69, 19, 0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+  .toolbar button:hover { background: rgba(139, 69, 19, 0.1); }
+  .toolbar button:active { background: rgba(139, 69, 19, 0.18); }
 </style>
 </head>
 <body>
 <div id="container">
   <svg id="rope" aria-hidden="true"><polyline></polyline></svg>
 </div>
-<div class="hint">拖拽文字拉绳子 · F 解开 · R 恢复原位</div>
+<div class="hint">拖拽文字拉绳子 · F 解开 · R 恢复 · V 绳子开关</div>
+<div class="toolbar">
+  <input id="poem-input" type="text" placeholder="输入你的诗句，回车应用" maxlength="200" />
+  <button id="apply-btn" type="button">应用</button>
+  <button id="rope-btn" type="button">绳子：开</button>
+</div>
 <script>
 (function () {
   'use strict';
@@ -95,11 +139,14 @@
     PHYSICS_HZ: 120,         // 物理固定时间步长（Hz）
     ZIGZAG_FLIP_EVEN: false, // true=蛇形反转偶数行；false=反转奇数行
     RESTORE_SPEED: 0.14,     // R 键恢复动画的插值速度（越大越快）
-    SHOW_ROPE: true          // 是否显示字符间绳子连线
+    SHOW_ROPE: true          // 初始是否显示字符间绳子连线（运行时可用 V 键/按钮切换）
   };
 
   var container = document.getElementById('container');
   var polyline = document.querySelector('#rope polyline');
+  var poemInput = document.getElementById('poem-input');
+  var applyBtn = document.getElementById('apply-btn');
+  var ropeBtn = document.getElementById('rope-btn');
 
   // 每个字符是一个物理粒子：{ ch, w, x, y, ox, oy, px, py, readingIdx, locked }
   var letters = [];
@@ -113,8 +160,9 @@
   var drags = new Map();
   var draggedIdx = new Set();
 
-  // R 键恢复动画是否进行中
+  // R 键恢复动画是否进行中；绳子连线是否可见
   var restoring = false;
+  var ropeVisible = CONFIG.SHOW_ROPE;
 
   // ---------- 行分组（阅读顺序分行，蛇形排列共用同一分组） ----------
   function buildLines() {
@@ -277,7 +325,6 @@
       var dy = l.oy - l.y;
       l.x += dx * CONFIG.RESTORE_SPEED;
       l.y += dy * CONFIG.RESTORE_SPEED;
-      // 同步上一帧位置，消除恢复后的残留速度
       l.px = l.x;
       l.py = l.y;
       if (Math.hypot(dx, dy) > 0.5) done = false;
@@ -294,7 +341,7 @@
       var l = letters[i];
       els[i].style.transform = 'translate3d(' + l.x + 'px,' + l.y + 'px,0)';
     }
-    if (CONFIG.SHOW_ROPE && order.length > 1) {
+    if (ropeVisible && order.length > 1) {
       var pts = '';
       for (var k = 0; k < order.length; k++) {
         var ll = letters[order[k]];
@@ -302,6 +349,65 @@
       }
       polyline.setAttribute('points', pts.trim());
     }
+  }
+
+  // ---------- 绳子可见性开关 ----------
+  function setRopeVisible(v) {
+    ropeVisible = !!v;
+    polyline.style.display = ropeVisible ? '' : 'none';
+    ropeBtn.textContent = ropeVisible ? '绳子：开' : '绳子：关';
+  }
+
+  // ---------- 构建：按给定文本重建全部字符与绳子 ----------
+  function build(text) {
+    // 清理旧字符 span（保留 SVG）
+    var old = container.querySelectorAll('span');
+    for (var i = 0; i < old.length; i++) old[i].remove();
+    letters = [];
+    els = [];
+    drags.clear();
+    draggedIdx.clear();
+    restoring = false;
+
+    // 1. 渲染每个字符为 span 并测量宽度
+    for (var j = 0; j < text.length; j++) {
+      var ch = text[j];
+      var span = document.createElement('span');
+      span.textContent = ch;
+      container.appendChild(span);
+      letters.push({
+        ch: ch,
+        w: span.offsetWidth || CONFIG.FONT_SIZE,
+        x: 0, y: 0, ox: 0, oy: 0, px: 0, py: 0,
+        readingIdx: letters.length,
+        locked: true
+      });
+      els.push(span);
+    }
+
+    // 2. 行分组 + 蛇形物理顺序
+    var lines = buildLines();
+    order = buildZigzagOrder(lines);
+
+    // 3. 按阅读顺序排版初始位置
+    layoutByReading(lines);
+
+    // 4. 静止绳长 = 蛇形相邻字符的中心距离
+    restLengths = [];
+    for (var k = 0; k < order.length - 1; k++) {
+      var a = letters[order[k]];
+      var b = letters[order[k + 1]];
+      restLengths.push(Math.hypot(b.x - a.x, b.y - a.y) || (a.w + b.w) * 0.5);
+    }
+
+    render();
+  }
+
+  // ---------- 自定义诗句：应用输入内容 ----------
+  function applyPoem() {
+    var t = poemInput.value.trim();
+    if (!t) { poemInput.focus(); return; }
+    build(t);
   }
 
   // ---------- 交互：Pointer Events 拖拽 ----------
@@ -345,8 +451,13 @@
   container.addEventListener('pointerup', endDrag);
   container.addEventListener('pointercancel', endDrag);
 
-  // ---------- 键盘：F 全部解开散落 / R 一键恢复 ----------
+  // ---------- 键盘：F 全部解开散落 / R 一键恢复 / V 绳子开关 ----------
   window.addEventListener('keydown', function (e) {
+    // 输入框获得焦点时不触发全局快捷键
+    if (document.activeElement === poemInput) {
+      if (e.key === 'Enter') applyPoem();
+      return;
+    }
     if (e.key === 'f' || e.key === 'F') {
       letters.forEach(function (l) { l.locked = false; });
     } else if (e.key === 'r' || e.key === 'R') {
@@ -354,7 +465,18 @@
       drags.clear();
       draggedIdx.clear();
       els.forEach(function (el) { el.classList.remove('dragging'); });
+    } else if (e.key === 'v' || e.key === 'V') {
+      setRopeVisible(!ropeVisible);
     }
+  });
+
+  // ---------- 工具条交互 ----------
+  applyBtn.addEventListener('click', applyPoem);
+  poemInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') applyPoem();
+  });
+  ropeBtn.addEventListener('click', function () {
+    setRopeVisible(!ropeVisible);
   });
 
   // ---------- 窗口缩放：按新尺寸重排并复位 ----------
@@ -396,38 +518,8 @@
 
   // ---------- 初始化 ----------
   function init() {
-    // 1. 渲染每个字符为 span 并测量宽度
-    for (var i = 0; i < CONFIG.TEXT.length; i++) {
-      var ch = CONFIG.TEXT[i];
-      var span = document.createElement('span');
-      span.textContent = ch;
-      container.appendChild(span);
-      letters.push({
-        ch: ch,
-        w: span.offsetWidth || CONFIG.FONT_SIZE,
-        x: 0, y: 0, ox: 0, oy: 0, px: 0, py: 0,
-        readingIdx: letters.length,
-        locked: true
-      });
-      els.push(span);
-    }
-
-    // 2. 行分组 + 蛇形物理顺序
-    var lines = buildLines();
-    order = buildZigzagOrder(lines);
-
-    // 3. 按阅读顺序排版初始位置
-    layoutByReading(lines);
-
-    // 4. 静止绳长 = 蛇形相邻字符的中心距离
-    restLengths = [];
-    for (var k = 0; k < order.length - 1; k++) {
-      var a = letters[order[k]];
-      var b = letters[order[k + 1]];
-      restLengths.push(Math.hypot(b.x - a.x, b.y - a.y) || (a.w + b.w) * 0.5);
-    }
-
-    render();
+    setRopeVisible(CONFIG.SHOW_ROPE);
+    build(CONFIG.TEXT);
     requestAnimationFrame(frame);
   }
 

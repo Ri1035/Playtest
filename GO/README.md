@@ -47,8 +47,8 @@ GO/
 ## 构建与部署
 
 - 本地构建：`npm run build` → 产物目录 `dist/`（`dist/index.html` 为最新版）。
-- 部署：Cloudflare Pages（项目名 `GO`），`dist/` 目录直接上传部署；GitHub `main` 分支为源码托管。
-- 线上地址：GitHub `https://github.com/Ri1035/GO` · Pages `https://go.pages.dev`（部署后更新）。
+- 部署：Cloudflare Pages（项目名 `go`，生产分支 `main`），`dist/` 目录直接上传部署；GitHub `main` 分支为源码托管。
+- 线上地址：GitHub `https://github.com/Ri1035/GO` · Pages `https://go-3nr.pages.dev`（最近部署 `https://8b2ba671.go-3nr.pages.dev`）。
 
 ## 运行
 

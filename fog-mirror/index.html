@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070a0e">
+<meta name="description" content="雾镜 — 对着起雾的镜子，用手指写下想说的话。">
+<title>雾镜 · Fog Mirror</title>
+<style>
+  :root{
+    --ink:#eaf4fb;
+    --accent:#8fc4ea;
+    --accent-dim:rgba(143,196,234,.55);
+    --glass:rgba(10,15,21,.48);
+    --glass-line:rgba(255,255,255,.14);
+    --font-ui:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    --font-brand:"Songti SC","Noto Serif SC","Source Han Serif SC",STSong,Georgia,"Times New Roman",serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overscroll-behavior:none}
+  body{
+    background:#070a0e;color:var(--ink);font-family:var(--font-ui);
+    position:fixed;inset:0;overflow:hidden;user-select:none;-webkit-user-select:none;
+  }
+
+  /* ── 舞台 ── */
+  #stage{position:fixed;inset:0;touch-action:none;cursor:none}
+  #stage > canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #bg{z-index:0;opacity:0;transition:opacity .6s}
+  #bg.live{opacity:1}
+  #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
+       transform:scaleX(-1);opacity:0;pointer-events:none;background:#070a0e}
+  #cam.live{opacity:1}
+  #fogCanvas{z-index:2;pointer-events:none}
+  #fxCanvas{z-index:3;pointer-events:none}
+
+  /* ── 首屏 ── */
+  #gate{
+    position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:32px;
+    background:radial-gradient(120% 90% at 50% 8%,#16324b 0%,#0b1620 45%,#070a0e 100%);
+    transition:opacity .7s ease,visibility .7s;
+  }
+  #gate.gone{opacity:0;visibility:hidden;pointer-events:none}
+  #gate::after{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    mix-blend-mode:soft-light;opacity:.5;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .gate-brand{
+    position:relative;font-family:var(--font-brand);font-weight:400;
+    font-size:clamp(54px,15vw,132px);line-height:.92;letter-spacing:.08em;
+    text-shadow:0 4px 60px rgba(120,180,225,.35);
+    animation:rise .9s cubic-bezier(.22,1,.36,1) both;
+  }
+  .gate-sub{
+    position:relative;margin-top:22px;font-size:clamp(13px,3.4vw,15px);
+    color:rgba(234,244,251,.72);line-height:1.9;max-width:24em;
+    animation:rise .9s .1s cubic-bezier(.22,1,.36,1) both;
+  }
+  .gate-keys{
+    position:relative;margin-top:12px;font-size:11.5px;letter-spacing:.06em;
+    color:rgba(234,244,251,.42);
+    animation:rise .9s .18s cubic-bezier(.22,1,.36,1) both;
+  }
+  .gate-keys b{color:var(--accent);font-weight:600}
+  .gate-btn{
+    position:relative;margin-top:42px;padding:15px 46px;border:none;border-radius:999px;
+    background:rgba(255,255,255,.94);color:#0d2438;font-family:var(--font-ui);
+    font-size:15px;font-weight:600;letter-spacing:.08em;cursor:pointer;
+    box-shadow:0 14px 44px rgba(112,170,220,.28);
+    transition:transform .3s cubic-bezier(.22,1,.36,1),background .25s;
+    animation:rise .9s .26s cubic-bezier(.22,1,.36,1) both;
+  }
+  .gate-btn:hover{background:#fff;transform:translateY(-2px)}
+  .gate-btn:active{transform:translateY(0) scale(.985)}
+  .gate-btn[disabled]{opacity:.6;cursor:default;transform:none}
+  .gate-note{
+    position:relative;margin-top:20px;font-size:11px;color:rgba(234,244,251,.34);
+    max-width:26em;line-height:1.7;
+    animation:rise .9s .34s cubic-bezier(.22,1,.36,1) both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+  /* ── 提示 ── */
+  #hint{
+    position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:6;
+    padding:9px 20px;border-radius:999px;white-space:nowrap;
+    background:var(--glass);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    font-size:12.5px;letter-spacing:.08em;color:rgba(234,244,251,.82);
+    transition:opacity .6s;pointer-events:none;
+  }
+  #hint.gone{opacity:0}
+
+  /* ── 识别状态 ── */
+  #mpStatus{
+    position:fixed;left:14px;top:14px;z-index:8;
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    padding:6px 11px;border-radius:11px;max-width:min(70vw,360px);
+    background:rgba(10,15,21,.46);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    font-size:11px;line-height:1.5;letter-spacing:.03em;color:rgba(234,244,251,.60);
+    opacity:0;transition:opacity .45s;pointer-events:none;
+  }
+  #mpStatus.show{opacity:1}
+  #mpStatus b{color:var(--accent);font-weight:600}
+  #mpStatus .dot{
+    width:6px;height:6px;border-radius:50%;background:rgba(234,244,251,.28);
+    box-shadow:0 0 0 0 rgba(143,196,234,.6);
+  }
+  #mpStatus .dot.on{background:var(--accent);animation:pulse 1.6s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(143,196,234,.55)}70%{box-shadow:0 0 0 7px rgba(143,196,234,0)}100%{box-shadow:0 0 0 0 rgba(143,196,234,0)}}
+
+  /* ── 控制栏 ── */
+  #bar{
+    position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));
+    transform:translateX(-50%);z-index:8;
+    display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+    gap:4px 5px;padding:8px 10px;width:max-content;max-width:calc(100vw - 16px);
+    border-radius:20px;background:var(--glass);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3);
+    box-shadow:0 12px 40px rgba(0,0,0,.42);
+    transition:opacity .45s ease,transform .45s cubic-bezier(.22,1,.36,1);
+  }
+  #bar.hide{opacity:0;transform:translateX(-50%) translateY(14px);pointer-events:none}
+  #bar button{
+    font-family:var(--font-ui);font-size:12.5px;letter-spacing:.04em;color:rgba(234,244,251,.9);
+    background:transparent;border:1px solid transparent;border-radius:13px;
+    padding:9px 13px;min-height:38px;cursor:pointer;white-space:nowrap;
+    transition:background .2s,color .2s,border-color .2s;
+  }
+  #bar button:hover{background:rgba(255,255,255,.09);color:#fff}
+  #bar button:active{transform:scale(.97)}
+  #bar button.on{background:rgba(143,196,234,.18);border-color:var(--accent-dim);color:#fff}
+  .seg{display:flex;gap:2px;padding:3px;border-radius:15px;background:rgba(255,255,255,.055)}
+  .seg button{border-radius:12px;padding:7px 12px;min-height:34px}
+  .sep{width:1px;height:22px;background:var(--glass-line);flex:none;margin:0 3px}
+  .icon{display:block;width:17px;height:17px;stroke:currentColor;fill:none;
+        stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+  .brushwrap{display:flex;align-items:center;gap:10px;padding:0 9px}
+  #brush{
+    -webkit-appearance:none;appearance:none;width:clamp(64px,15vw,116px);height:3px;border-radius:2px;
+    background:linear-gradient(90deg,var(--accent),rgba(143,196,234,.22));outline:none;cursor:pointer;
+  }
+  #brush::-webkit-slider-thumb{
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;
+    box-shadow:0 0 0 1px rgba(255,255,255,.5),0 2px 10px rgba(0,0,0,.5);cursor:pointer;
+  }
+  #brush::-moz-range-thumb{width:15px;height:15px;border:none;border-radius:50%;background:#fff;cursor:pointer}
+  #brushDot{
+    width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.85);flex:none;
+    box-shadow:0 0 10px rgba(143,196,234,.9);transition:width .12s,height .12s;
+  }
+
+  /* 雾气浓度滑条 */
+  .sl{display:flex;align-items:center;gap:8px;padding:0 8px;height:30px}
+  .sl > span{font-size:11.5px;letter-spacing:.06em;color:rgba(234,244,251,.58);flex:none}
+  .sl > b{
+    font-size:11px;font-weight:600;color:var(--accent);flex:none;
+    min-width:2.3em;text-align:right;font-variant-numeric:tabular-nums;
+  }
+  #fogRange{
+    -webkit-appearance:none;appearance:none;width:clamp(56px,13vw,104px);height:3px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(255,255,255,.62),rgba(255,255,255,.10));outline:none;cursor:pointer;
+  }
+  #fogRange::-webkit-slider-thumb{
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;
+    box-shadow:0 0 0 1px rgba(255,255,255,.5),0 2px 10px rgba(0,0,0,.5);cursor:pointer;
+  }
+  #fogRange::-moz-range-thumb{width:15px;height:15px;border:none;border-radius:50%;background:#fff;cursor:pointer}
+
+  #shapePop{
+    position:absolute;left:0;bottom:calc(100% + 10px);display:flex;gap:4px;padding:7px;
+    border-radius:16px;background:var(--glass);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    box-shadow:0 12px 34px rgba(0,0,0,.4);
+    opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;
+    transform-origin:bottom left;transition:all .26s cubic-bezier(.22,1,.36,1);
+  }
+  #shapePop.open{opacity:1;transform:none;pointer-events:auto}
+  #shapePop button{padding:7px;min-height:40px;min-width:40px;display:grid;place-items:center}
+  #shapePop svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;
+                stroke-linejoin:round;stroke-linecap:round}
+  .toolwrap{position:relative;display:flex}
+
+  #textBar{
+    position:fixed;left:50%;bottom:112px;transform:translateX(-50%) translateY(10px);
+    z-index:9;display:flex;gap:6px;align-items:center;padding:7px 8px 7px 14px;
+    border-radius:16px;background:var(--glass);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    opacity:0;pointer-events:none;transition:all .28s cubic-bezier(.22,1,.36,1);
+    max-width:calc(100vw - 24px);
+  }
+  #textBar.open{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  #textIn{
+    background:none;border:none;outline:none;color:#fff;font-family:var(--font-ui);
+    font-size:14px;width:clamp(110px,40vw,250px);letter-spacing:.02em;
+  }
+  #textIn::placeholder{color:rgba(234,244,251,.42)}
+  #textBar button{padding:9px 16px;font-size:12.5px;min-height:36px}
+
+  #toast{
+    position:fixed;left:50%;top:22px;transform:translateX(-50%) translateY(-14px);z-index:30;
+    padding:11px 20px;border-radius:14px;background:rgba(10,15,21,.82);
+    border:1px solid var(--glass-line);color:var(--ink);font-size:12.5px;
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    opacity:0;pointer-events:none;transition:all .35s cubic-bezier(.22,1,.36,1);
+    max-width:min(88vw,420px);text-align:center;line-height:1.6;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  @media (max-width:700px){
+    #bar{gap:4px;padding:7px 8px;border-radius:18px}
+    #bar button{padding:8px 10px;font-size:11.5px;min-height:36px}
+    .seg button{padding:7px 9px;min-height:32px}
+    .sep{display:none}
+    .brushwrap{gap:8px;padding:0 5px}
+    .sl{gap:6px;padding:0 5px}
+    .icon{width:16px;height:16px}
+    #hint{font-size:11.5px;bottom:158px}
+    #textBar{bottom:150px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="bg"></canvas>
+  <video id="cam" playsinline autoplay muted></video>
+  <canvas id="fogCanvas"></canvas>
+  <canvas id="fxCanvas"></canvas>
+</div>
+
+<div id="hint">擦一擦玻璃，或抬手指向镜面</div>
+
+<div id="mpStatus" role="status" aria-live="polite">
+  <span class="dot" id="dotHand"></span><span id="stHand">手势 待开启</span>
+  <span class="dot" id="dotBreath"></span><span id="stBreath">呼气 待开启</span>
+</div>
+
+<div id="textBar">
+  <label class="sr" for="textIn">要绘制到雾上的文字</label>
+  <input id="textIn" type="text" placeholder="写点字，落在雾上…" maxlength="24">
+  <button id="textOk">落下</button>
+</div>
+
+<div id="bar" role="toolbar" aria-label="雾镜控制栏">
+  <div class="seg" role="group" aria-label="雾效模式">
+    <button id="mStatic" class="on" aria-pressed="true">静态雾</button>
+    <button id="mDynamic" aria-pressed="false">动态雾</button>
+  </div>
+  <div class="sep"></div>
+  <div class="seg" role="group" aria-label="绘制工具">
+    <button id="tErase" class="on" title="擦除雾面，露出镜中画面">擦除</button>
+    <button id="tInk" title="手写墨迹，留在雾上">手写</button>
+  </div>
+  <div class="sep"></div>
+  <div class="brushwrap">
+    <span id="brushDot" aria-hidden="true"></span>
+    <input id="brush" type="range" min="12" max="130" value="48" aria-label="笔刷粗细">
+  </div>
+  <div class="sep"></div>
+  <div class="sl">
+    <span>雾</span>
+    <input id="fogRange" type="range" min="18" max="100" value="72" aria-label="雾气浓度">
+    <b id="fogVal">72</b>
+  </div>
+  <div class="sep"></div>
+  <div class="toolwrap">
+    <button id="btnShape" aria-haspopup="true" aria-expanded="false" title="一键绘制图形">图形</button>
+    <div id="shapePop" role="menu" aria-label="图形">
+      <button data-shape="heart" title="心形" aria-label="心形" role="menuitem">
+        <svg viewBox="0 0 24 24"><path d="M12 20C5.6 15 3 11.8 3 8.9 3 6.2 5.1 4 7.8 4c1.7 0 3.2.8 4.2 2.2C13 4.8 14.5 4 16.2 4 18.9 4 21 6.2 21 8.9c0 2.9-2.6 6.1-9 11.1z"/></svg>
+      </button>
+      <button data-shape="star" title="星星" aria-label="星星" role="menuitem">
+        <svg viewBox="0 0 24 24"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.2 6.6 20.1l1-6.1L3.2 9.7l6.1-.9z"/></svg>
+      </button>
+      <button data-shape="question" title="问号" aria-label="问号" role="menuitem">
+        <svg viewBox="0 0 24 24"><path d="M8.4 8.2c0-2.4 1.6-4 3.8-4s3.8 1.5 3.8 3.6c0 1.8-1 2.6-2.4 3.4-1.2.7-1.6 1.3-1.6 2.4v.5"/><circle cx="12" cy="18.4" r="1.15"/></svg>
+      </button>
+      <button data-shape="smile" title="笑脸" aria-label="笑脸" role="menuitem">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M9 14.6c.8.9 1.8 1.4 3 1.4s2.2-.5 3-1.4"/><path d="M9.3 9.6v.9M14.7 9.6v.9"/></svg>
+      </button>
+    </div>
+  </div>
+  <button id="btnGesture" title="手势绘画：抬手指向镜面即可书写（G）">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 11.5V5.6a1.5 1.5 0 013 0v5.4"/>
+      <path d="M12 11V4.4a1.5 1.5 0 013 0V11"/>
+      <path d="M15 11.6V7a1.5 1.5 0 013 0v7.2A6.8 6.8 0 0111.2 21H10a6.6 6.6 0 01-6.4-5.3l-.3-1.6a1.5 1.5 0 012.9-.6l.7 2.4"/>
+    </svg>
+    <span class="sr">手势</span>
+  </button>
+  <button id="btnText" title="添加艺术字">文字</button>
+  <button id="btnClear" title="清除雾面，恢复整片雾（C）">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M7.5 15.5l7.6-7.6a2 2 0 012.8 0l1.2 1.2a2 2 0 010 2.8l-7.6 7.6H7.5z"/></svg>
+    <span class="sr">清除</span>
+  </button>
+  <button id="btnSave" title="保存当前画面（S）">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"/><path d="M8 10.5l4 3.5 4-3.5"/><path d="M4 17v2.5h16V17"/></svg>
+    <span class="sr">保存</span>
+  </button>
+</div>
+
+<div id="gate">
+  <div class="gate-brand">雾镜</div>
+  <p class="gate-sub">对着起雾的镜子，用手指或鼠标写下想说的话。<br>靠近镜面呼一口气，雾气会重新漫上来。</p>
+  <p class="gate-keys"><b>G</b> 手势绘画 · <b>C</b> 清除雾面 · <b>S</b> 保存 · <b>H</b> 收起控制栏 · <b>[ ]</b> 调笔刷</p>
+  <button class="gate-btn" id="gateBtn">开启雾镜</button>
+  <p class="gate-note" id="gateNote">需要授予摄像头权限（呼气识别会再请求一次麦克风）；页面须运行在 HTTPS 或 localhost 下。<br>识别模型已内置在本地 vendor/ 目录，无需联网。</p>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   雾镜 / Fog Mirror
+   图层：video(清晰) → fogCanvas(毛玻璃+雾+墨迹) → fxCanvas(雾粒)
+   雾   ：在白雾上用「云雾密度纹理 + 流速场自平流」擦薄，
+          薄处透出模糊镜中景，得到自然浓淡与流动，而非整体平移。
+   手势 ：MediaPipe HandLandmarker 取食指指尖（本地 vendor，离线可用），
+          镜像映射 + One Euro 滤波，移动即擦除；模型不可用时退回肤色追踪。
+   呼气 ：FaceLandmarker 面部表情（cheekPuff / mouthPucker / mouthFunnel）
+          与 Web Audio 麦克风气流噪声双重判定 → 雾气缓缓漫回。
+   ═══════════════════════════════════════════════════════════════ */
+
+const $ = id => document.getElementById(id);
+const stage = $('stage'), video = $('cam'), bg = $('bg'),
+      fogC = $('fogCanvas'), fxC = $('fxCanvas');
+const fctx = fogC.getContext('2d');
+const xctx = fxC.getContext('2d');
+const bctx = bg.getContext('2d');
+
+/* 离屏画布：一次性创建、随 resize 复用（不反复 new） */
+const mask  = document.createElement('canvas'), mctx = mask.getContext('2d');
+const ink   = document.createElement('canvas'), ictx = ink.getContext('2d');
+const fogL  = document.createElement('canvas'), lctx = fogL.getContext('2d');
+const blurA = document.createElement('canvas'), actx = blurA.getContext('2d');
+const blurB = document.createElement('canvas'), bct2 = blurB.getContext('2d');
+const flowA = document.createElement('canvas'), fac  = flowA.getContext('2d');
+const flowB = document.createElement('canvas'), fbc  = flowB.getContext('2d');
+mask.width = mask.height = 0;            // 0 表示「尚未初始化 → 需铺满白雾」
+ink.width  = ink.height  = 0;
+
+const BLUR_DIV = 8;      // 雾底降采样倍率
+const MID_DIV  = 3;      // 中继升采样倍率（消除块状感）
+const MAX_EDGE = 1800;   // 渲染分辨率上限，兜底低端设备
+const FLOW_DIV = 44;     // 流速场每格约多少渲染像素（雾很软，格子可粗）
+
+const S = {
+  mode: 'static',
+  tool: 'erase',
+  brush: 48,             // CSS px
+  fog: .72,              // 雾气浓度 0..1
+  demo: false,
+  ready: false,
+  drawing: false,
+  lastX: 0, lastY: 0,
+  gesture: false,        // 手势绘画开关
+  breathing: false,
+  quality: .9,
+  degraded: 0,
+  clear: null
+};
+
+let W = 0, H = 0, DPR = 1;
+let stamp = null, stampR = -1;
+let fogGrad = null, grainPat = null, blobSprite = null, fogTex = null, fogTexAR = 0;
+const grainShift = new DOMMatrix();   // 颗粒图案平移矩阵，全程复用一个实例
+let videoReady = false;
+let lastPX = 0, lastPY = 0, lastMoveT = 0, haveLastM = false;
+
+/* ═══════ 1. 云雾纹理（多倍频值噪声，无平铺接缝） ═══════ */
+
+function hash2(x, y, s) {
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function vnoise(x, y, s) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi, s),     b = hash2(xi + 1, yi, s);
+  const c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+  return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
+}
+function fbm(x, y, s, oct) {
+  let sum = 0, amp = 1, norm = 0, f = 1;
+  for (let i = 0; i < oct; i++) {
+    sum += vnoise(x * f, y * f, s + i * 17) * amp;
+    norm += amp; amp *= .5; f *= 2;
+  }
+  return sum / norm;
+}
+
+/* 生成「白色 + 浓度存于 alpha」的云雾纹理，供静态浓淡与流速场共用 */
+function makeFogTex() {
+  const ar = W / Math.max(1, H);
+  if (fogTex && Math.abs(ar - fogTexAR) < .04) return;   // 比例没变就复用，省一次生成
+  fogTexAR = ar;
+  const GH = 200;
+  const gw = Math.max(96, Math.min(460, Math.round(GH * ar)));
+  const gh = Math.max(96, Math.min(460, Math.round(gw / ar)));
+
+  const c = fogTex || document.createElement('canvas');
+  c.width = gw; c.height = gh;
+  const g = c.getContext('2d');
+  const img = g.createImageData(gw, gh);
+  const d = img.data;
+
+  const F = 3.2;                       // 大尺度涡旋数量
+  for (let y = 0, i = 0; y < gh; y++) {
+    const ny = y / gh;
+    for (let x = 0; x < gw; x++, i += 4) {
+      const nx = x / gw;
+      // 两层叠加：大团絮 + 细丝
+      const v = .70 * fbm(nx * F, ny * F, 11, 4) +
+                .30 * fbm(nx * F * 3.4, ny * F * 3.4, 97, 3);
+      // 对比度拉伸，得到通透的浓淡层次
+      let a = (v - .34) / .42;
+      a = a < 0 ? 0 : a > 1 ? 1 : a;
+      a = a * a * (3 - 2 * a);
+      d[i] = d[i + 1] = d[i + 2] = 255;
+      d[i + 3] = (a * 255) | 0;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  fogTex = c;
+}
+
+/* 细颗粒：玻璃质感（可平铺，廉价的确定性噪点） */
+function makeGrain() {
+  const grain = document.createElement('canvas'); grain.width = grain.height = 128;
+  const gc = grain.getContext('2d');
+  const gid = gc.createImageData(128, 128);
+  for (let i = 0; i < gid.data.length; i += 4) {
+    const v = 40 + ((Math.random() * 150) | 0);
+    gid.data[i] = gid.data[i + 1] = gid.data[i + 2] = v;
+    gid.data[i + 3] = 255;
+  }
+  gc.putImageData(gid, 0, 0);
+  grainPat = lctx.createPattern(grain, 'repeat');
+}
+
+/* 雾滴精灵：粒子复用，避免每帧建渐变 */
+function makeBlob() {
+  const blob = document.createElement('canvas'); blob.width = blob.height = 64;
+  const bc = blob.getContext('2d');
+  const rg = bc.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0,   'rgba(255,255,255,.95)');
+  rg.addColorStop(.45, 'rgba(226,241,252,.45)');
+  rg.addColorStop(1,   'rgba(226,241,252,0)');
+  bc.fillStyle = rg; bc.fillRect(0, 0, 64, 64);
+  blobSprite = blob;
+}
+
+/* 软边笔刷印章：按尺寸缓存，之后仅 drawImage */
+function makeStamp() {
+  const k = W / Math.max(1, stage.clientWidth);
+  const r = Math.max(4, Math.round(S.brush * k));
+  if (r === stampR) return;
+  stampR = r;
+  const s = r * 2;
+  const c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d');
+  const rg = g.createRadialGradient(r, r, 0, r, r, r);
+  rg.addColorStop(0,   'rgba(255,255,255,1)');
+  rg.addColorStop(.46, 'rgba(255,255,255,1)');
+  rg.addColorStop(.68, 'rgba(255,255,255,.86)');
+  rg.addColorStop(.84, 'rgba(255,255,255,.38)');
+  rg.addColorStop(1,   'rgba(255,255,255,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, s, s);
+  stamp = c;
+}
+
+/* ═══════ 2. 尺寸与预热 ═══════ */
+
+function cloneCanvas(src) {
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  c.getContext('2d').drawImage(src, 0, 0);
+  return c;
+}
+
+function buildFogGrad() {
+  const d = S.fog;
+  const w = fogL.width, h = fogL.height;
+  fogGrad = lctx.createRadialGradient(
+    w * .5, h * .46, Math.min(w, h) * .06,
+    w * .5, h * .50, Math.max(w, h) * .72);
+  const c0 = Math.min(1, .30 + .30 * d);
+  const c1 = Math.min(1, .38 + .34 * d);
+  const c2 = Math.min(1, .48 + .36 * d);
+  const c3 = Math.min(1, .56 + .36 * d);
+  fogGrad.addColorStop(0,   `rgba(255,255,255,${c0})`);
+  fogGrad.addColorStop(.55, `rgba(248,252,255,${c1})`);
+  fogGrad.addColorStop(.85, `rgba(238,247,254,${c2})`);
+  fogGrad.addColorStop(1,   `rgba(228,241,252,${c3})`);
+}
+
+function resize() {
+  const dw = Math.max(1, stage.clientWidth);
+  const dh = Math.max(1, stage.clientHeight);
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const fit = Math.min(S.quality * DPR, MAX_EDGE / Math.max(dw, dh));
+  const nw = Math.max(320, Math.round(dw * fit));
+  const nh = Math.max(240, Math.round(dh * fit));
+  if (nw === W && nh === H) return;
+
+  // 先备份（必须在重置尺寸之前）
+  const keepM = (mask.width && mask.height) ? cloneCanvas(mask) : null;
+  const keepI = (ink.width  && ink.height ) ? cloneCanvas(ink)  : null;
+
+  W = nw; H = nh;
+  for (const c of [fogC, fxC, mask, ink]) { c.width = W; c.height = H; }
+  blurA.width  = Math.max(8,  Math.round(W / BLUR_DIV));
+  blurA.height = Math.max(8,  Math.round(H / BLUR_DIV));
+  blurB.width  = Math.max(24, Math.round(W / MID_DIV));
+  blurB.height = Math.max(24, Math.round(H / MID_DIV));
+  fogL.width   = Math.max(96, W >> 1);
+  fogL.height  = Math.max(96, H >> 1);
+  bg.width  = Math.max(160, Math.round(W / 2));
+  bg.height = Math.max(120, Math.round(H / 2));
+
+  if (keepM) mctx.drawImage(keepM, 0, 0, W, H);
+  else { mctx.fillStyle = '#fff'; mctx.fillRect(0, 0, W, H); }
+  if (keepI) ictx.drawImage(keepI, 0, 0, W, H);
+
+  for (const c of [fctx, actx, bct2, xctx, ictx, lctx]) c.imageSmoothingEnabled = true;
+
+  makeFogTex();
+  buildFogGrad();
+  initFlow();
+  makeStamp();
+}
+
+/* ═══════ 3. 流速场：半拉格朗日自平流 ═══════ */
+
+let flowGX = 0, flowGY = 0, flowCur = 0, flowReady = false;
+const _v = [0, 0];
+const FLOW_PAD = 1.16;    // 采样窗口略大于一格：抵消拉伸产生的硬边
+const FLOW_DECAY = .92;   // 结构衰减：浓淡慢慢归于平静
+const FLOW_INJ = .085;    // 每帧补充的新云雾量
+
+/* 局部扰动池：指针/呼气把雾搅动起来 */
+const IMP_N = 10;
+const imps = new Array(IMP_N);
+for (let i = 0; i < IMP_N; i++) imps[i] = { on: false, x: 0, y: 0, spin: 0, life: 0, max: 1, seed: i * 1.7 };
+let impIdx = 0, impAcc = 0;
+
+function addImpulse(x, y, spin) {
+  if (impAcc > 6 && Math.random() < .45) return;      // 限流，避免扰动池被同一笔画刷满
+  impAcc = 0;
+  const p = imps[impIdx = (impIdx + 1) % IMP_N];
+  p.on = true; p.x = x; p.y = y; p.spin = spin;
+  p.life = p.max = 950;
+}
+
+function velAt(x, y, t, out) {
+  const s = 2.2 / Math.max(W, H);
+  const a = Math.sin(y * s * 1.5 + t * .00019) + .5 * Math.sin(y * s * 3.7 - t * .00011);
+  const b = Math.cos(x * s * 1.7 - t * .00015) + .5 * Math.cos(x * s * 3.1 + t * .00009);
+  let vx = a * 26 + b * 9;
+  let vy = b * 21 - a * 7;
+  for (let i = 0; i < IMP_N; i++) {
+    const p = imps[i];
+    if (!p.on) continue;
+    const dx = x - p.x, dy = y - p.y;
+    const fall = 1200 / (dx * dx + dy * dy + 1200);
+    const fade = p.life / p.max;
+    const sway = 1 + .5 * Math.sin(t * .002 + p.seed);
+    const g = p.spin * fall * fade * sway;
+    vx += -dy * g;
+    vy +=  dx * g;
+  }
+  out[0] = vx; out[1] = vy;
+}
+
+function initFlow() {
+  const cell = FLOW_DIV * (S.degraded ? 1.7 : 1);
+  flowGX = Math.max(18, Math.min(56, Math.round(W / cell)));
+  flowGY = Math.max(12, Math.round(flowGX * H / Math.max(1, W)));
+  flowA.width = flowB.width = flowGX;
+  flowA.height = flowB.height = flowGY;
+  for (const c of [fac, fbc]) {
+    c.globalCompositeOperation = 'source-over';
+    c.globalAlpha = 1;
+    c.clearRect(0, 0, flowGX, flowGY);
+    c.drawImage(fogTex, 0, 0, flowGX, flowGY);
+  }
+  flowCur = 0; flowReady = true;
+  for (let i = 0; i < IMP_N; i++) imps[i].on = false;
+}
+
+function updateFlow(t, dt) {
+  const k = dt / 16.7;
+  const cur  = flowCur ? flowB : flowA;
+  const nxtC = flowCur ? fac : fbc;
+  const cw = W / flowGX, ch = H / flowGY;
+  const adv = dt * .001;
+
+  for (let i = 0; i < IMP_N; i++) {
+    const p = imps[i];
+    if (p.on && (p.life -= dt) <= 0) p.on = false;
+  }
+
+  /* 1) 平流：每格按该处速度回溯采样，得到局部卷动而非整体位移 */
+  nxtC.globalCompositeOperation = 'source-over';
+  nxtC.globalAlpha = 1;
+  nxtC.clearRect(0, 0, flowGX, flowGY);
+  const off = (FLOW_PAD - 1) * .5;
+  for (let gy = 0; gy < flowGY; gy++) {
+    const py = (gy + .5) * ch;
+    for (let gx = 0; gx < flowGX; gx++) {
+      velAt((gx + .5) * cw, py, t, _v);
+      const sx = gx - _v[0] * adv / cw - off;
+      const sy = gy - _v[1] * adv / ch - off;
+      nxtC.drawImage(cur, sx, sy, FLOW_PAD, FLOW_PAD, gx, gy, 1.02, 1.02);
+    }
+  }
+
+  /* 2) 衰减：浓淡结构缓慢平息，避免糊成一团 */
+  nxtC.globalCompositeOperation = 'destination-in';
+  nxtC.fillStyle = `rgba(255,255,255,${Math.pow(FLOW_DECAY, k)})`;
+  nxtC.fillRect(0, 0, flowGX, flowGY);
+
+  /* 3) 补充新云雾，维持层次 */
+  nxtC.globalCompositeOperation = 'source-over';
+  nxtC.globalAlpha = Math.min(.6, FLOW_INJ * k);
+  nxtC.drawImage(fogTex, 0, 0, flowGX, flowGY);
+  nxtC.globalAlpha = 1;
+
+  flowCur ^= 1;
+  impAcc += k;
+}
+
+/* ═══════ 4. 摄像头 ═══════ */
+
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return enableDemo('当前浏览器不支持摄像头 API');
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    try { await video.play(); } catch (_) {}
+    video.classList.add('live');
+    videoReady = true;
+    S.demo = false;
+    return true;
+  } catch (err) {
+    const map = {
+      NotAllowedError:    '摄像头权限被拒绝',
+      NotFoundError:      '未检测到摄像头设备',
+      NotReadableError:   '摄像头被其他程序占用',
+      OverconstrainedError: '摄像头不满足分辨率要求',
+      SecurityError:      '当前环境不允许访问摄像头'
+    };
+    return enableDemo(map[err && err.name] || '无法访问摄像头');
+  }
+}
+
+function enableDemo(reason) {
+  S.demo = true;
+  S.gesture = false;
+  bg.classList.add('live');
+  $('btnGesture').classList.remove('on');
+  const detail = window.isSecureContext ? reason : '非 HTTPS 环境，浏览器禁止调用摄像头';
+  toast(detail + ' · 已切到演示画面', 3600);
+  return false;
+}
+
+const DEMO_BLOBS = [[.24,.30,.38,143,196,234],[.74,.38,.34,90,130,180],
+                    [.48,.78,.42,60,96,140],[.82,.84,.26,200,220,240]];
+function drawDemoScene(t) {
+  const w = bg.width, h = bg.height;
+  bctx.globalCompositeOperation = 'source-over';
+  bctx.fillStyle = '#0a141d';
+  bctx.fillRect(0, 0, w, h);
+  bctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < DEMO_BLOBS.length; i++) {
+    const b = DEMO_BLOBS[i];
+    const x = (b[0] + Math.sin(t * .00013 + i * 1.7) * .07) * w;
+    const y = (b[1] + Math.cos(t * .00017 + i * 2.3) * .06) * h;
+    const r = b[2] * Math.max(w, h);
+    const g = bctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${b[3]},${b[4]},${b[5]},.30)`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    bctx.fillStyle = g;
+    bctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+}
+
+/* ═══════ 5. 每帧渲染 ═══════ */
+
+/* 等比裁剪 + 水平镜像（自拍镜面视角） */
+function drawCoverMirrored(ctx, src, sw, sh, dw, dh) {
+  if (!sw || !sh) return;
+  const k = Math.max(dw / sw, dh / sh);
+  const w = sw * k, h = sh * k, x = (dw - w) / 2, y = (dh - h) / 2;
+  ctx.save();
+  ctx.translate(dw, 0); ctx.scale(-1, 1);
+  ctx.drawImage(src, 0, 0, sw, sh, x, y, w, h);
+  ctx.restore();
+}
+
+const srcNode = () => (S.demo ? bg : video);
+function srcW() { return S.demo ? bg.width : video.videoWidth; }
+function srcH() { return S.demo ? bg.height : video.videoHeight; }
+
+function drawFog(t, dt) {
+  const sw = srcW(), sh = srcH();
+  if (!S.demo && (!videoReady || !sw)) return;
+  const lw = fogL.width, lh = fogL.height;
+
+  /* 1) 毛玻璃底 */
+  drawCoverMirrored(actx, srcNode(), sw, sh, blurA.width, blurA.height);
+  bct2.drawImage(blurA, 0, 0, blurB.width, blurB.height);
+  lctx.globalCompositeOperation = 'source-over';
+  lctx.globalAlpha = 1;
+  lctx.clearRect(0, 0, lw, lh);
+  lctx.drawImage(blurB, 0, 0, lw, lh);
+
+  /* 2) 白雾（浓度滑条控制厚薄）+ 冷调 */
+  lctx.fillStyle = fogGrad; lctx.fillRect(0, 0, lw, lh);
+  lctx.fillStyle = `rgba(158,196,232,${.05 + .05 * S.fog})`;
+  lctx.fillRect(0, 0, lw, lh);
+
+  /* 3) 自然浓淡：用云雾纹理擦薄白雾 → 薄处透出模糊镜中景
+        （擦薄强度随浓度略降：雾越浓，明暗反而越均匀） */
+  lctx.globalCompositeOperation = 'destination-out';
+  lctx.globalAlpha = .40 - .14 * S.fog;
+  lctx.drawImage(fogTex, 0, 0, lw, lh);
+
+  /* 4) 动态雾：流速场里的云雾也在擦薄，且随时间卷动 */
+  if (S.mode === 'dynamic' && flowReady) {
+    updateFlow(t, dt);
+    lctx.globalAlpha = .34 - .10 * S.fog;
+    lctx.drawImage(flowCur ? flowB : flowA, 0, 0, lw, lh);
+  }
+  lctx.globalAlpha = 1;
+  lctx.globalCompositeOperation = 'source-over';
+
+  /* 5) 细颗粒：玻璃质感 */
+  lctx.globalCompositeOperation = 'overlay';
+  lctx.globalAlpha = .26;
+  lctx.fillStyle = grainPat;
+  grainShift.e = (t * .03) % 128;      // 复用同一个矩阵，避免每帧新建对象
+  grainShift.f = (t * .05) % 128;
+  grainPat.setTransform(grainShift);
+  lctx.fillRect(0, 0, lw, lh);
+  lctx.globalCompositeOperation = 'source-over';
+  lctx.globalAlpha = 1;
+
+  /* 6) 合成到主层 */
+  fctx.globalCompositeOperation = 'source-over';
+  fctx.globalAlpha = 1;
+  fctx.clearRect(0, 0, W, H);
+  fctx.drawImage(fogL, 0, 0, W, H);
+
+  /* 7) 用蒙版裁出「仍有雾」的区域 */
+  fctx.globalCompositeOperation = 'destination-in';
+  fctx.drawImage(mask, 0, 0);
+  fctx.globalCompositeOperation = 'source-over';
+
+  /* 8) 墨迹压在最上层：可被同一支笔擦掉 */
+  fctx.drawImage(ink, 0, 0);
+}
+
+/* 雾消散粒子：对象池，零运行时分配 */
+const PMAX = 140;
+const parts = new Array(PMAX);
+for (let i = 0; i < PMAX; i++) parts[i] = { on: false, x: 0, y: 0, vx: 0, vy: 0, r: 0, life: 0, max: 1 };
+let pIdx = 0;
+
+function spawnPuff(x, y, vx, vy, r) {
+  const p = parts[pIdx = (pIdx + 1) % PMAX];
+  p.on = true;
+  p.x = x; p.y = y;
+  p.vx = vx * .020 + (Math.random() - .5) * 1.1;
+  p.vy = vy * .020 + (Math.random() - .5) * 1.1 - .35;
+  p.r = r * (.55 + Math.random() * .75);
+  p.life = p.max = 420 + Math.random() * 300;
+}
+
+function drawFx(dt) {
+  xctx.clearRect(0, 0, W, H);
+  xctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < PMAX; i++) {
+    const p = parts[i];
+    if (!p.on) continue;
+    p.life -= dt;
+    if (p.life <= 0) { p.on = false; continue; }
+    p.vy -= dt * .0007;
+    p.x += p.vx * dt * .06;
+    p.y += p.vy * dt * .06;
+    p.vx *= .975; p.vy *= .975;
+    const k = p.life / p.max;
+    const rr = p.r * (1.7 - k * .7);
+    xctx.globalAlpha = k * k * .30;
+    xctx.drawImage(blobSprite, p.x - rr, p.y - rr, rr * 2, rr * 2);
+  }
+  xctx.globalAlpha = 1;
+  xctx.globalCompositeOperation = 'source-over';
+  /* 绘画时不绘制光标圈：镜面上只有雾与手指本身 */
+}
+
+/* ── 主循环 ── */
+let rafId = 0, prevT = 0, fpsAcc = 0, fpsN = 0;
+
+function loop(t) {
+  rafId = requestAnimationFrame(loop);
+  const dt = prevT ? Math.min(60, t - prevT) : 16.7;
+  prevT = t;
+
+  if (S.demo) drawDemoScene(t);
+  if (S.clear) stepClear(dt);
+  drawFog(t, dt);
+  drawFx(dt);
+  if (S.gesture) stepGesture(dt);
+  if (S.breathing) refog(dt);
+  adaptQuality(dt);
+}
+
+/* 低端设备自适应降级：只降不升，避免画质来回抖动 */
+function adaptQuality(dt) {
+  fpsAcc += dt; fpsN++;
+  if (fpsN < 90 || S.degraded >= 2) return;
+  const avg = fpsAcc / fpsN;
+  fpsAcc = 0; fpsN = 0;
+  if (avg > 26 && S.quality > .62) {
+    S.quality = .6; S.degraded++;
+    W = 0; H = 0;                 // 触发 resize 重建
+    resize();
+    if (S.degraded > 1) toast('已自动降低渲染精度以保证流畅', 2200);
+  }
+}
+
+/* ═══════ 6. 擦除 ═══════ */
+
+function eraseSegment(x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const step = Math.max(1, stampR * .26);
+  const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / step));
+  mctx.globalCompositeOperation = 'destination-out';
+  ictx.globalCompositeOperation = 'destination-out';
+  for (let i = 1; i <= n; i++) {
+    const k = i / n, x = x0 + dx * k, y = y0 + dy * k;
+    mctx.drawImage(stamp, x - stampR, y - stampR);
+    ictx.drawImage(stamp, x - stampR, y - stampR);   // 墨迹随雾一起被擦掉
+  }
+  spawnPuff(x1, y1, dx, dy, stampR);
+  if (Math.random() < .5) spawnPuff(x1, y1, dx, dy, stampR);
+}
+
+/* ═══════ 7. 墨迹：手写 / 图形 / 艺术字 ═══════ */
+
+const INK_MAIN = 'rgba(246,252,255,.95)';
+const INK_GLOW = 'rgba(143,196,234,.22)';
+const INK_CORE = 'rgba(255,255,255,1)';
+const pxK = () => W / Math.max(1, stage.clientWidth);   // CSS px → 画布 px
+
+function inkSegment(x0, y0, x1, y1, speed) {
+  const w = S.brush * pxK() * .62 * (.5 + .5 * Math.max(.34, 1 - speed / 1400));
+  ictx.globalCompositeOperation = 'source-over';
+  ictx.lineCap = 'round';  ictx.lineJoin = 'round';
+
+  ictx.strokeStyle = INK_GLOW; ictx.lineWidth = w * 1.9;
+  ictx.beginPath(); ictx.moveTo(x0, y0); ictx.lineTo(x1, y1); ictx.stroke();
+
+  ictx.strokeStyle = INK_MAIN;  ictx.lineWidth = w;
+  ictx.beginPath(); ictx.moveTo(x0, y0); ictx.lineTo(x1, y1); ictx.stroke();
+
+  ictx.strokeStyle = INK_CORE;  ictx.lineWidth = Math.max(.7, w * .30);
+  ictx.beginPath(); ictx.moveTo(x0, y0);  ictx.lineTo(x1, y1); ictx.stroke();
+}
+
+/* 图形路径：单位空间（-1..1）只构建一次，复用到每次绘制 */
+function starPath() {
+  const p = new Path2D();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const r = i % 2 ? .42 : 1;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    i ? p.lineTo(x, y) : p.moveTo(x, y);
+  }
+  p.closePath();
+  return p;
+}
+function questionPath() {
+  const p = new Path2D();
+  p.moveTo(-.42, -.40);
+  p.bezierCurveTo(-.42, -.96, .56, -.96, .56, -.36);
+  p.bezierCurveTo(.56, .02, .02, 0, .02, .44);
+  p.moveTo(.13, .74);
+  p.arc(0, .74, .13, 0, Math.PI * 2);
+  return p;
+}
+function smilePath() {
+  const p = new Path2D();
+  p.arc(0, 0, 1, 0, Math.PI * 2);
+  p.moveTo(-.62, -.30); p.lineTo(-.62, -.02);
+  p.moveTo(.62, -.30);  p.lineTo(.62, -.02);
+  p.moveTo(-.55, .36);  p.bezierCurveTo(-.28, .68, .28, .68, .55, .36);
+  return p;
+}
+const SHAPES = {
+  heart: new Path2D('M0 .60 C-.66 .05 -.90 -.30 -.70 -.62 C-.50 -.92 -.12 -.85 0 -.55 C.12 -.85 .50 -.92 .70 -.62 C.90 -.30 .66 .05 0 .60 Z'),
+  star: starPath(),
+  question: questionPath(),
+  smile: smilePath()
+};
+
+function placeShape(name) {
+  const base = SHAPES[name];
+  if (!base || !S.ready) return;
+  const size = S.brush * pxK() * 1.75;
+  const cx = haveLastM ? S.lastX : W / 2;
+  const cy = haveLastM ? S.lastY : H / 2;
+
+  // 在单位空间转成实际路径，避免 ctx.scale 让 shadowBlur 被同步放大
+  const path = new Path2D();
+  path.addPath(base, new DOMMatrix().translate(cx, cy).scale(size));
+
+  ictx.globalCompositeOperation = 'source-over';
+  ictx.lineJoin = 'round';  ictx.lineCap = 'round';
+  ictx.shadowColor = 'rgba(143,196,234,.85)';
+  ictx.shadowBlur = 16 * pxK();
+  ictx.fillStyle = 'rgba(219,238,252,.28)';
+  ictx.fill(path);
+  ictx.strokeStyle = INK_MAIN; ictx.lineWidth = Math.max(1.2, size * .075); ictx.stroke(path);
+  ictx.shadowBlur = 0;
+  ictx.strokeStyle = INK_CORE; ictx.lineWidth = Math.max(.6, size * .026);   ictx.stroke(path);
+
+  flash(cx, cy);
+}
+
+function placeText(text) {
+  const t = (text || '').trim();
+  if (!t || !S.ready) return;
+  const k = pxK();
+  const size = Math.min(W * .16, Math.max(46 * k, S.brush * k * 2.1));
+  const cx = haveLastM ? S.lastX : W / 2;
+  const cy = haveLastM ? S.lastY : H / 2;
+
+  ictx.globalCompositeOperation = 'source-over';
+  ictx.textAlign = 'center';  ictx.textBaseline = 'middle';
+  ictx.font = `600 ${size}px "Songti SC","Noto Serif SC","Source Han Serif SC",STSong,Georgia,serif`;
+
+  ictx.shadowColor = 'rgba(143,196,234,.9)';
+  ictx.shadowBlur = size * .55;
+  ictx.fillStyle = 'rgba(255,255,255,.96)';
+  ictx.fillText(t, cx, cy);
+
+  ictx.shadowBlur = 0;
+  const g = ictx.createLinearGradient(cx, cy - size * .62, cx, cy + size * .62);
+  g.addColorStop(0,   'rgba(255,255,255,1)');
+  g.addColorStop(.55, 'rgba(216,239,255,.98)');
+  g.addColorStop(1,   'rgba(143,196,234,.96)');
+  ictx.fillStyle = g;
+  ictx.fillText(t, cx, cy);
+
+  flash(cx, cy);
+}
+
+function flash(cx, cy) {
+  const r = S.brush * pxK();
+  for (let i = 0; i < 10; i++) spawnPuff(cx, cy, 0, 0, r);
+}
+
+/* ═══════ 8. 清除 / 呼气还原 ═══════ */
+
+function startClear() {
+  S.clear = { t: 0, dur: 760, cov: 0 };
+}
+
+function stepClear(dt) {
+  const c = S.clear;
+  c.t += dt;
+  const p = Math.min(1, c.t / c.dur);
+  const eased = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  const need = c.cov >= .999 ? 0 : (eased - c.cov) / (1 - c.cov);
+  if (need > 0) {
+    mctx.globalCompositeOperation = 'source-over';
+    mctx.fillStyle = `rgba(255,255,255,${need})`;
+    mctx.fillRect(0, 0, W, H);
+    ictx.globalCompositeOperation = 'destination-out';
+    ictx.fillStyle = `rgba(0,0,0,${need})`;
+    ictx.fillRect(0, 0, W, H);
+    ictx.globalCompositeOperation = 'source-over';
+  }
+  c.cov = eased;
+  if (p >= 1) {
+    mctx.globalCompositeOperation = 'source-over';
+    mctx.fillStyle = '#fff'; mctx.fillRect(0, 0, W, H);
+    ictx.clearRect(0, 0, W, H);
+    S.clear = null;
+  }
+}
+
+/* 呼气期间：雾气持续缓缓漫回，墨迹随之褪去 */
+function refog(dt) {
+  const a = Math.min(.06, .018 * (dt / 16.7));
+  mctx.globalCompositeOperation = 'source-over';
+  mctx.fillStyle = `rgba(255,255,255,${a})`;
+  mctx.fillRect(0, 0, W, H);
+  ictx.globalCompositeOperation = 'destination-out';
+  ictx.fillStyle = `rgba(0,0,0,${a})`;
+  ictx.fillRect(0, 0, W, H);
+  ictx.globalCompositeOperation = 'source-over';
+}
+
+/* ═══════ 9. 手势：MediaPipe 指尖擦除 + 面部/麦克风呼气还原 ═══════ */
+
+/* ── 9.1 状态与状态条 ── */
+let handLM = null, faceLM = null;        // Hand / Face Landmarker 实例
+let mpHand = 'idle';                     // idle | loading | ready | fallback
+let mpFace = 'idle';                     // idle | loading | ready | failed
+let lastHandT = 0, lastFaceT = 0, handErr = 0, faceMiss = 0;
+let handFail = 0, faceFail = 0;          // 推理连续失败计数
+let faceBlow = 0;                        // 面部呼气强度 0..1
+
+/* MediaPipe WASM 需要有 WebGL 才能起图；没有就直连降级，避免白等与刷错误 */
+let glOK = null;
+function webglOK() {
+  if (glOK !== null) return glOK;
+  try {
+    const c = document.createElement('canvas');
+    glOK = !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch (_) { glOK = false; }
+  return glOK;
+}
+
+const mpStatus = $('mpStatus'), stHand = $('stHand'), stBreath = $('stBreath'),
+      dotHand = $('dotHand'), dotBreath = $('dotBreath');
+
+function setHandLabel(txt, live) {
+  if (stHand._t !== txt) { stHand._t = txt; stHand.textContent = txt; }
+  if (dotHand._o !== live) { dotHand._o = live; dotHand.classList.toggle('on', live); }
+}
+function setBreathLabel(txt, live) {
+  if (stBreath._t !== txt) { stBreath._t = txt; stBreath.textContent = txt; }
+  if (dotBreath._o !== live) { dotBreath._o = live; dotBreath.classList.toggle('on', live); }
+}
+const showStatus = on => mpStatus.classList.toggle('show', on);
+
+/* ── 9.2 One Euro 滤波：静止不抖、快挥跟手 ── */
+function makeFilter(minCutoff, beta) {
+  return { x: null, dx: 0, t: 0, minCutoff, beta };
+}
+function oneEuro(f, x, t) {
+  const dt = f.t ? Math.min(.25, t - f.t) : 1 / 30;   // t 单位：秒
+  f.t = t;
+  if (f.x === null) { f.x = x; return x; }
+  const aD = 1 / (1 + (1 / (2 * Math.PI)) / dt);
+  f.dx += aD * ((x - f.x) / dt - f.dx);
+  const a = 1 / (1 + (1 / (2 * Math.PI * (f.minCutoff + f.beta * Math.abs(f.dx)))) / dt);
+  f.x += a * (x - f.x);
+  return f.x;
+}
+const fTipX = makeFilter(1.6, .022), fTipY = makeFilter(1.6, .022);
+let tipLive = false;
+
+/* ── 9.3 加载 MediaPipe：先本地 vendor，失败自动回退 CDN ──
+   直接双击打开（file://）时，本地 .mjs 会被 CORS 拦下，此时靠 CDN 兜底。 */
+const MP_VER = '1.0.1';
+const MP_SRC = [
+  {
+    tag: '本地',
+    bundle: './vendor/mediapipe/vision_bundle.mjs',
+    wasm:   './vendor/mediapipe/wasm',
+    hand:   './vendor/mediapipe/hand_landmarker.task',
+    face:   './vendor/mediapipe/face_landmarker.task'
+  },
+  {
+    tag: 'CDN',
+    bundle: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/vision_bundle.mjs`,
+    wasm:   `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`,
+    hand:   'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+    face:   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
+  }
+];
+const bundleCache = new Map();           // url → module；失败也缓存，避免重复请求
+function importBundle(url) {
+  let p = bundleCache.get(url);
+  if (!p) { p = import(/* @vite-ignore */ url); bundleCache.set(url, p); }
+  return p;
+}
+
+/* 依次尝试各源构建 Landmarker，成功即返回 { lm, tag } */
+async function createLandmarker(kind) {
+  let lastErr = null;
+  for (const s of MP_SRC) {
+    try {
+      const v = await importBundle(s.bundle);
+      const files = await v.FilesetResolver.forVisionTasks(s.wasm);
+      const opts = d => kind === 'hand'
+        ? {
+            baseOptions: { modelAssetPath: s.hand, delegate: d },
+            runningMode: 'VIDEO', numHands: 1,
+            minHandDetectionConfidence: .5, minHandPresenceConfidence: .5, minTrackingConfidence: .5
+          }
+        : {
+            baseOptions: { modelAssetPath: s.face, delegate: d },
+            runningMode: 'VIDEO', numFaces: 1, outputFaceBlendshapes: true
+          };
+      const L = kind === 'hand' ? v.HandLandmarker : v.FaceLandmarker;
+      let lm;
+      try { lm = await L.createFromOptions(files, opts('GPU')); }
+      catch (_) { lm = await L.createFromOptions(files, opts('CPU')); }
+      return { lm, tag: s.tag };
+    } catch (err) { lastErr = err; }
+  }
+  throw lastErr || new Error('MediaPipe 源全部不可用');
+}
+
+async function loadHands() {
+  if (mpHand === 'loading' || mpHand === 'ready') return mpHand === 'ready';
+  if (!webglOK()) {
+    mpHand = 'fallback'; handLM = null;
+    setHandLabel('手势 内置指尖追踪（无 WebGL）', false);
+    console.warn('[雾镜] 当前环境无 WebGL，MediaPipe 无法运行，改用肤色追踪');
+    return false;
+  }
+  mpHand = 'loading';
+  setHandLabel('手势 模型加载中…', false);
+  try {
+    const r = await createLandmarker('hand');
+    handLM = r.lm;
+    mpHand = 'ready';
+    setHandLabel('手势 就绪 · 抬起手', false);
+    console.info('[雾镜] 手势模型来源：' + r.tag);
+    return true;
+  } catch (err) {
+    mpHand = 'fallback';
+    handLM = null;
+    setHandLabel('手势 内置指尖追踪', false);
+    console.warn('[雾镜] 手势模型加载失败，退回肤色追踪：', err);
+    return false;
+  }
+}
+
+async function loadFace() {
+  if (mpFace === 'loading' || mpFace === 'ready') return mpFace === 'ready';
+  if (!webglOK()) {
+    mpFace = 'failed'; faceLM = null;
+    setBreathLabel(breathIdleLabel(), false);
+    return false;
+  }
+  mpFace = 'loading';
+  setBreathLabel('呼气 模型加载中…', false);
+  try {
+    const r = await createLandmarker('face');
+    faceLM = r.lm;
+    mpFace = 'ready';
+    setBreathLabel(breathIdleLabel(), false);
+    console.info('[雾镜] 面部模型来源：' + r.tag);
+    return true;
+  } catch (err) {
+    mpFace = 'failed';
+    faceLM = null;
+    console.warn('[雾镜] 面部模型加载失败，改用麦克风判定呼气：', err);
+    setBreathLabel(breathIdleLabel(), false);
+    return false;
+  }
+}
+
+function breathIdleLabel() {
+  if (faceLM && MIC.on) return '呼气 面部 + 麦克风 就绪';
+  if (faceLM) return '呼气 面部表情 就绪';
+  if (MIC.on) return '呼气 麦克风 就绪';
+  if (mpFace === 'loading') return '呼气 模型加载中…';
+  if (mpFace === 'failed') return '呼气 无可用识别源';
+  return '呼气 待开启';
+}
+
+/* ── 9.4 麦克风气流：宽带噪声 + 自适应噪声底 ── */
+const MIC = {
+  on: false, pending: false, ctx: null, src: null, analyser: null, stream: null,
+  time: null, freq: null, floor: .003, tOn: 0, tOff: 0, blown: false
+};
+
+async function enableMic() {
+  if (MIC.on || MIC.pending) return MIC.on;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+  MIC.pending = true;
+  try {
+    MIC.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    const AC = window.AudioContext || window.webkitAudioContext;
+    MIC.ctx = new AC();
+    if (MIC.ctx.state === 'suspended') { try { await MIC.ctx.resume(); } catch (_) {} }
+    MIC.src = MIC.ctx.createMediaStreamSource(MIC.stream);
+    MIC.analyser = MIC.ctx.createAnalyser();
+    MIC.analyser.fftSize = 2048;
+    MIC.analyser.smoothingTimeConstant = .4;
+    MIC.src.connect(MIC.analyser);      // 不接 destination，避免啸叫
+    MIC.time = new Uint8Array(MIC.analyser.fftSize);
+    MIC.freq = new Uint8Array(MIC.analyser.frequencyBinCount);
+    MIC.on = true; MIC.pending = false;
+    setBreathLabel(breathIdleLabel(), false);
+    return true;
+  } catch (err) {
+    MIC.pending = false; MIC.on = false;
+    if (MIC.stream) { MIC.stream.getTracks().forEach(t => t.stop()); MIC.stream = null; }
+    MIC.analyser = null;
+    console.warn('[雾镜] 麦克风不可用，仅用面部表情判定呼气：', err);
+    setBreathLabel(breathIdleLabel(), false);
+    return false;
+  }
+}
+
+function stepMic(dt) {
+  if (!MIC.on) return;
+  const t = MIC.time, f = MIC.freq;
+  MIC.analyser.getByteTimeDomainData(t);
+  let sum = 0;
+  for (let i = 0; i < t.length; i++) { const v = (t[i] - 128) / 128; sum += v * v; }
+  const rms = Math.sqrt(sum / t.length);
+
+  MIC.analyser.getByteFrequencyData(f);
+  let e = 0, mx = 1;
+  for (let i = 0; i < f.length; i++) { const v = f[i]; e += v; if (v > mx) mx = v; }
+  const flat = e / (mx * f.length);     // 气流是宽带噪声 → 谱平坦；乐音/人声 → 低
+
+  MIC.floor += (rms - MIC.floor) * (rms < MIC.floor ? .06 : .0015);   // 底噪：降快升慢
+  const above = rms > Math.max(.016, MIC.floor * 3.2) && flat > .24;
+
+  if (above) { MIC.tOn += dt; MIC.tOff = 0; }
+  else { MIC.tOff += dt; MIC.tOn = Math.max(0, MIC.tOn - dt * 1.2); }
+
+  if (MIC.blown) { if (MIC.tOff > 220) MIC.blown = false; }
+  else if (MIC.tOn > 110) MIC.blown = true;
+}
+
+/* ── 9.5 识别结果 → 坐标 / 呼气强度 ── */
+function applyHandResult(res, now) {
+  const lms = res && res.landmarks;
+  if (!lms || !lms.length) {
+    if (!tipLive) return;
+    if (++handErr > 4) {          // 手离开画面：断开笔画，避免下次连线
+      tipLive = false; gHas = false; gConf = 0; handErr = 0;
+      setHandLabel('手势 就绪 · 抬起手', false);
+    }
+    return;
+  }
+  handErr = 0;
+  const tip = lms[0][8];          // 8 = 食指指尖
+  const [cx, cy] = mapToCanvas(tip.x, tip.y);
+  const ts = now / 1000;
+  if (!tipLive) { fTipX.x = cx; fTipY.x = cy; fTipX.t = fTipY.t = 0; tipLive = true; }
+  gxS = oneEuro(fTipX, cx, ts);
+  gyS = oneEuro(fTipY, cy, ts);
+  gConf = 8;
+  gestureStroke();
+  setHandLabel('手势 已识别 · 移动即擦除', true);
+}
+
+function applyFaceResult(res) {
+  const bs = res && res.faceBlendshapes && res.faceBlendshapes[0];
+  if (!bs) { faceBlow = 0; if (++faceMiss > 8) setBreathLabel(breathIdleLabel(), false); return; }
+  faceMiss = 0;
+  const c = bs.categories;
+  let cheek = 0, pucker = 0, funnel = 0;
+  for (let i = 0; i < c.length; i++) {
+    const n = c[i].categoryName, s = c[i].score;
+    if (n === 'cheekPuff') cheek = s;
+    else if (n === 'mouthPucker') pucker = s;
+    else if (n === 'mouthFunnel') funnel = s;
+  }
+  faceBlow = Math.max(cheek, pucker * .9, funnel * .9);
+}
+
+/* ── 9.6 呼气状态机：面部强势、麦克风兜底，带迟滞防抖 ── */
+function updateBreath(dt) {
+  if (breath.cool > 0) breath.cool -= dt;
+  const micOn = MIC.blown;
+  const faceOn = faceBlow > .38, faceHold = faceBlow > .20;
+
+  if (breath.on) {
+    if ((faceHold || micOn) && breath.hold < 700) breath.hold = 700;
+    breath.hold -= dt;
+    if (breath.hold <= 0) { breath.on = false; breath.cool = 900; }
+  } else if (breath.cool <= 0) {
+    breath.hit = (faceOn || micOn) ? breath.hit + dt : 0;
+    if (breath.hit >= 110) {
+      breath.on = true; breath.hit = 0; breath.hold = 1000; onBreath();
+    }
+  }
+  S.breathing = breath.on;
+
+  if (breath.on) setBreathLabel('呼气 检测中 · 雾气漫回', true);
+  else if (mpFace === 'ready' || MIC.on) setBreathLabel(breathIdleLabel(), false);
+}
+
+/* ── 9.7 手势落笔：指尖位移即擦除（或按当前工具留墨） ── */
+function gestureStroke() {
+  if (gConf < 3) return;
+  gLost = 0;
+  if (!gHas) { gLastX = gxS; gLastY = gyS; gHas = true; }
+  const dx = gxS - gLastX, dy = gyS - gLastY;
+  const dist = Math.hypot(dx, dy);
+  if (dist > Math.max(2, stampR * .12)) {
+    if (S.tool === 'ink') inkSegment(gLastX, gLastY, gxS, gyS, dist);
+    else eraseSegment(gLastX, gLastY, gxS, gyS);
+    if (S.mode === 'dynamic') addImpulse(gxS, gyS, (dx + dy) * .02);
+    gLastX = gxS; gLastY = gyS;
+    hideHint();
+  }
+  S.lastX = gxS; S.lastY = gyS; haveLastM = true;
+}
+
+const TK_W = 160;                       // 追踪降采样宽度
+let tk = null, tctx2 = null, tkW = 0, tkH = 0;
+let tkSkin = null, tkRow = null;
+let gxS = 0, gyS = 0, gConf = 0, gHas = false, gLost = 0;
+let gLastX = 0, gLastY = 0;
+const breath = { on: false, hit: 0, hold: 0, cool: 0 };
+let gestAcc = 0;
+
+function ensureTrack() {
+  const sw = srcW(), sh = srcH();
+  if (!sw || !sh) return false;
+  const w = TK_W, h = Math.max(60, Math.round(TK_W * sh / sw));
+  if (tk && tk.width === w && tk.height === h) return true;
+  tk = tk || document.createElement('canvas');
+  tk.width = w; tk.height = h;
+  tctx2 = tk.getContext('2d', { willReadFrequently: true });
+  tkW = w; tkH = h;
+  tkSkin = new Uint8Array(w * h);
+  tkRow  = new Int16Array(h);
+  return true;
+}
+
+/* 视频(未镜像) 归一化坐标 → 画布坐标（cover 裁剪 + 水平镜像） */
+function mapToCanvas(fx, fy) {
+  const sw = srcW(), sh = srcH();
+  const k = Math.max(W / sw, H / sh);
+  const dw = sw * k, dh = sh * k;
+  const ox = (W - dw) * .5, oy = (H - dh) * .5;
+  return [W - (ox + fx * dw), oy + fy * dh];
+}
+
+/* 主调度：MediaPipe 可用走模型，不可用退回肤色追踪 */
+function stepGesture(dt) {
+  if (S.demo || !videoReady) return;
+  const now = performance.now();
+
+  if (handLM) {
+    if (now - lastHandT >= (S.degraded ? 80 : 45)) {
+      lastHandT = now;
+      try { applyHandResult(handLM.detectForVideo(video, now), now); handFail = 0; }
+      catch (err) {
+        if (++handFail >= 3) {       // 连续失败 → 立刻退回肤色追踪
+          handLM = null; mpHand = 'fallback'; handFail = 0; tipLive = false;
+          setHandLabel('手势 内置指尖追踪', false);
+          console.warn('[雾镜] 手势推理异常，退回肤色追踪：', err);
+        }
+      }
+    }
+  } else if (mpHand === 'fallback') {
+    gestAcc += dt;
+    if (gestAcc >= 60) { gestAcc = 0; stepSkinTrack(); }
+  }
+
+  if (faceLM && now - lastFaceT >= (S.degraded ? 170 : 90)) {
+    lastFaceT = now;
+    try { applyFaceResult(faceLM.detectForVideo(video, now)); faceFail = 0; }
+    catch (err) {
+      if (++faceFail >= 3) {
+        faceLM = null; mpFace = 'failed'; faceFail = 0; faceBlow = 0;
+        console.warn('[雾镜] 面部推理异常，改用麦克风判定呼气：', err);
+        setBreathLabel(breathIdleLabel(), false);
+      }
+    }
+  }
+
+  stepMic(dt);
+  updateBreath(dt);
+}
+
+/* 降级方案：肤色分割定位指尖（约 16fps，够用且省算力） */
+function stepSkinTrack() {
+  if (!ensureTrack()) return;
+  tctx2.drawImage(video, 0, 0, tkW, tkH);
+  let img;
+  try { img = tctx2.getImageData(0, 0, tkW, tkH); } catch (_) { return; }
+  const d = img.data, n = tkW * tkH;
+
+  /* — 肤色掩码 — */
+  const skin = tkSkin;
+  let boxSkin = 0;
+  const x0 = (tkW * .26) | 0, x1 = (tkW * .74) | 0, y1 = (tkH * .58) | 0;
+  for (let y = 0, i = 0, p = 0; y < tkH; y++) {
+    for (let x = 0; x < tkW; x++, i++, p += 4) {
+      const r = d[p], g = d[p + 1], b = d[p + 2];
+      const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+      const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+      const s = (r > 58 && g > 28 && b > 14 && mx - mn > 13 && r > g + 5 && r > b + 7) ? 1 : 0;
+      skin[i] = s;
+      if (s && x >= x0 && x <= x1 && y <= y1) boxSkin++;
+    }
+  }
+
+  /* — 指尖：忽略面部区域后，最高处的那一撮肤色即指尖 — */
+  const hasFace = boxSkin > (x1 - x0) * y1 * .08;   // 阈值偏松：宁可多排除，也别把额头当成手
+  const rowC = tkRow;
+  rowC.fill(0);
+  let valid = 0;
+  const fx0 = hasFace ? x0 : -1, fx1 = hasFace ? x1 : -1, fy1 = hasFace ? y1 : -1;
+  for (let y = 0; y < tkH; y++) {
+    const base = y * tkW;
+    for (let x = 0; x < tkW; x++) {
+      if (!skin[base + x]) continue;
+      if (hasFace && y <= fy1 && x >= fx0 && x <= fx1) continue;
+      rowC[y]++; valid++;
+    }
+  }
+
+  let tipY = -1;
+  for (let y = 0; y < tkH; y++) { if (rowC[y] >= 2) { tipY = y; break; } }
+  let tipX = -1;
+  if (tipY >= 0) {
+    let sum = 0, cnt = 0, yEnd = Math.min(tkH, tipY + 4);
+    for (let y = tipY; y < yEnd; y++) {
+      const base = y * tkW;
+      for (let x = 0; x < tkW; x++) {
+        if (!skin[base + x]) continue;
+        if (hasFace && y <= fy1 && x >= fx0 && x <= fx1) continue;
+        sum += x; cnt++;
+      }
+    }
+    if (cnt) tipX = sum / cnt;
+  }
+
+  const detected = tipY >= 0 && tipX >= 0 && valid > 42 && valid < n * .40;
+  if (detected) {
+    const [cx, cy] = mapToCanvas(tipX / tkW, tipY / tkH);
+    if (gConf === 0) { gxS = cx; gyS = cy; }
+    else { gxS += (cx - gxS) * .45; gyS += (cy - gyS) * .45; }
+    if (gConf < 6) gConf++;
+    gLost = 0;
+    setHandLabel('手势 已追踪 · 移动即擦除', true);
+  } else {
+    if (gConf > 0) gConf--;
+    if (gHas && ++gLost > 12) { gHas = false; gLost = 0; }
+    setHandLabel('手势 内置追踪 · 抬起手', false);
+  }
+  if (gConf >= 3) gestureStroke();
+}
+
+/* 呼气开始：一小簇雾气荡开，让「还原」看得见 */
+function onBreath() {
+  for (let i = 0; i < 14; i++) {
+    spawnPuff(W * (.30 + Math.random() * .40), H * (.32 + Math.random() * .42), 0, 0, Math.max(W, H) * .085);
+  }
+  hideHint();
+}
+
+function setGesture(on) {
+  if (on && (S.demo || !videoReady)) {
+    toast('需要摄像头才能开启手势绘画', 2600);
+    return;
+  }
+  S.gesture = on;
+  $('btnGesture').classList.toggle('on', on);
+  if (!on) {
+    breath.on = false; breath.hit = 0; breath.hold = 0; breath.cool = 0;
+    gHas = false; gConf = 0; tipLive = false; faceBlow = 0;
+    S.breathing = false;
+    showStatus(false);
+  } else {
+    hideHint();
+    showStatus(true);
+    toast('手势已开启 · 抬手挥动即擦除，对着镜头呼气雾气会漫回', 3400);
+    enableMic();                       // 麦克风气流（拒绝授权则自动只用面部）
+    loadHands().then(loadFace);        // 本地模型串行创建，避免抢 GL 上下文
+  }
+  showBar(true);
+}
+
+/* ═══════ 10. 保存画面 ═══════ */
+
+function savePicture() {
+  if (!S.ready) return;
+  const sw = srcW(), sh = srcH();
+  if (!S.demo && (!videoReady || !sw)) { toast('画面还没准备好'); return; }
+
+  const out = document.createElement('canvas');
+  out.width  = Math.round(stage.clientWidth  * Math.min(DPR, 2));
+  out.height = Math.round(stage.clientHeight * Math.min(DPR, 2));
+  const c = out.getContext('2d');
+  c.fillStyle = '#070a0e'; c.fillRect(0, 0, out.width, out.height);
+  drawCoverMirrored(c, srcNode(), sw, sh, out.width, out.height);
+  c.drawImage(fogC, 0, 0, W, H, 0, 0, out.width, out.height);   // 雾 + 墨迹已合成
+
+  out.toBlob(blob => {
+    if (!blob) { toast('保存失败，请重试'); return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '');
+    a.href = url; a.download = `雾镜-${ts}.jpg`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);          // 及时释放
+    toast('已保存到下载目录', 2000);
+  }, 'image/jpeg', .92);
+}
+
+/* ═══════ 11. 指针交互 ═══════ */
+
+function toCanvas(e) {
+  const r = fogC.getBoundingClientRect();
+  return [(e.clientX - r.left) * (W / Math.max(1, r.width)),
+          (e.clientY - r.top)  * (H / Math.max(1, r.height))];
+}
+
+function paint(x, y, speed) {
+  if (S.tool === 'ink') inkSegment(lastPX, lastPY, x, y, speed);
+  else eraseSegment(lastPX, lastPY, x, y);
+}
+
+stage.addEventListener('pointerdown', e => {
+  if (!S.ready) return;
+  if (stage.setPointerCapture) { try { stage.setPointerCapture(e.pointerId); } catch (_) {} }
+  const [x, y] = toCanvas(e);
+  S.lastX = x; S.lastY = y; haveLastM = true;
+  S.drawing = true;
+  lastPX = x; lastPY = y; lastMoveT = performance.now();
+
+  if (S.tool === 'ink') inkSegment(x, y, x + .01, y + .01, 0);
+  else eraseSegment(x, y, x + .01, y + .01);      // 点一下也能擦出小孔
+  if (S.mode === 'dynamic') addImpulse(x, y, 1);
+
+  hideHint(); showBar(false);
+  e.preventDefault();
+}, { passive: false });
+
+stage.addEventListener('pointermove', e => {
+  const [x, y] = toCanvas(e);
+  S.lastX = x; S.lastY = y; haveLastM = true;
+
+  const now = performance.now();
+  const dt = Math.max(1, now - lastMoveT);
+  const dx = x - lastPX, dy = y - lastPY;
+
+  if (S.mode === 'dynamic' && (dx || dy)) {       // 指针把雾搅开
+    addImpulse(x, y, (dx + dy) * .02);
+  }
+  if (S.drawing) paint(x, y, Math.hypot(dx, dy) / dt * 16.7);
+
+  lastPX = x; lastPY = y; lastMoveT = now;
+  if (e.pointerType === 'mouse') showBar(false);
+}, { passive: true });
+
+const endStroke = () => { S.drawing = false; };
+stage.addEventListener('pointerup', endStroke);
+stage.addEventListener('pointercancel', endStroke);
+
+/* ═══════ 12. 界面 ═══════ */
+
+const bar = $('bar'), hint = $('hint'), shapePop = $('shapePop'),
+      textBar = $('textBar'), textIn = $('textIn');
+let barTimer = 0, lastArm = 0;
+
+function showBar(sticky) {
+  const now = performance.now();
+  if (!bar.classList.contains('hide') && now - lastArm < 350) return;  // 抑制定时器 churn
+  lastArm = now;
+  bar.classList.remove('hide');
+  clearTimeout(barTimer);
+  if (!textBar.classList.contains('open') && !shapePop.classList.contains('open')) {
+    barTimer = setTimeout(() => bar.classList.add('hide'), sticky ? 4200 : 2600);
+  }
+}
+const hideHint = () => hint.classList.add('gone');
+
+function setMode(m) {
+  S.mode = m;
+  $('mStatic').classList.toggle('on', m === 'static');
+  $('mDynamic').classList.toggle('on', m === 'dynamic');
+  $('mStatic').setAttribute('aria-pressed', String(m === 'static'));
+  $('mDynamic').setAttribute('aria-pressed', String(m === 'dynamic'));
+  showBar(true);
+}
+function setTool(t) {
+  S.tool = t;
+  $('tErase').classList.toggle('on', t === 'erase');
+  $('tInk').classList.toggle('on', t === 'ink');
+  showBar(true);
+}
+
+$('mStatic').addEventListener('click', () => setMode('static'));
+$('mDynamic').addEventListener('click', () => setMode('dynamic'));
+$('tErase').addEventListener('click', () => setTool('erase'));
+$('tInk').addEventListener('click', () => setTool('ink'));
+$('btnGesture').addEventListener('click', () => setGesture(!S.gesture));
+
+const brushEl = $('brush'), brushDot = $('brushDot');
+function applyBrush(v) {
+  S.brush = v;
+  brushEl.value = v;
+  const d = 6 + v / 130 * 12;
+  brushDot.style.width = brushDot.style.height = d + 'px';
+  makeStamp();
+}
+brushEl.addEventListener('input', e => { applyBrush(+e.target.value); showBar(true); });
+
+const fogEl = $('fogRange'), fogVal = $('fogVal');
+function applyFog(v) {
+  S.fog = v / 100;
+  fogEl.value = v;
+  fogVal.textContent = v;
+  buildFogGrad();
+}
+fogEl.addEventListener('input', e => { applyFog(+e.target.value); showBar(true); });
+
+$('btnShape').addEventListener('click', e => {
+  e.stopPropagation();
+  const open = shapePop.classList.toggle('open');
+  $('btnShape').setAttribute('aria-expanded', String(open));
+  showBar(true);
+});
+shapePop.addEventListener('click', e => {
+  const b = e.target.closest('button[data-shape]');
+  if (!b) return;
+  placeShape(b.dataset.shape);
+  shapePop.classList.remove('open');
+  $('btnShape').setAttribute('aria-expanded', 'false');
+  showBar(true);
+});
+
+$('btnText').addEventListener('click', () => {
+  hideHint();                       // 提示条与输入框位置重合，先让位
+  textBar.classList.add('open');
+  textIn.focus();
+  showBar(true);
+});
+$('textOk').addEventListener('click', submitText);
+function submitText() {
+  placeText(textIn.value);
+  textIn.value = '';
+  textBar.classList.remove('open');
+  textIn.blur();
+  showBar(true);
+}
+textIn.addEventListener('keydown', e => {
+  if (e.key === 'Enter')  { e.preventDefault(); submitText(); }
+  if (e.key === 'Escape') { textBar.classList.remove('open'); textIn.blur(); }
+});
+
+$('btnClear').addEventListener('click', () => {
+  startClear();
+  spawnPuff(W / 2, H / 2, 0, 0, Math.max(W, H) * .18);
+  showBar(true);
+});
+$('btnSave').addEventListener('click', () => { savePicture(); showBar(true); });
+
+document.addEventListener('pointerdown', e => {
+  if (!shapePop.contains(e.target) && e.target !== $('btnShape')) {
+    shapePop.classList.remove('open');
+    $('btnShape').setAttribute('aria-expanded', 'false');
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target === textIn) return;
+  const k = e.key.toLowerCase();
+  if (k === 'c') { startClear(); }
+  else if (k === 's') { e.preventDefault(); savePicture(); }
+  else if (k === 'h') { bar.classList.toggle('hide'); }
+  else if (k === 'g') { setGesture(!S.gesture); }
+  else if (k === '1') { setMode('static'); }
+  else if (k === '2') { setMode('dynamic'); }
+  else if (k === 'escape') { shapePop.classList.remove('open'); textBar.classList.remove('open'); }
+  else if (k === '[') { applyBrush(Math.max(12, S.brush - 8)); }
+  else if (k === ']') { applyBrush(Math.min(130, S.brush + 8)); }
+});
+
+let toastTimer = 0;
+function toast(msg, ms = 2600) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+/* ═══════ 13. 启动 ═══════ */
+
+$('gateBtn').addEventListener('click', async () => {
+  const btn = $('gateBtn');
+  btn.disabled = true;
+  btn.textContent = '正在唤醒…';
+  $('gateNote').textContent = '请在浏览器弹窗中允许使用摄像头。';
+  const ok = await startCamera();
+  $('gate').classList.add('gone');
+  S.ready = true;
+  resize();
+  startClear();                       // 入场：雾气缓缓铺满整面镜
+  prevT = 0; fpsAcc = 0; fpsN = 0;
+  if (!rafId) rafId = requestAnimationFrame(loop);
+  showBar(true);
+  setTimeout(hideHint, 5600);
+  setTimeout(() => { if (!bar.classList.contains('hide')) bar.classList.add('hide'); }, 7600);
+  if (ok) setTimeout(() => setGesture(true), 1200);   // 有摄像头就默认开手势
+});
+
+let rzTimer = 0;
+window.addEventListener('resize', () => {
+  if (!S.ready) return;
+  clearTimeout(rzTimer);
+  rzTimer = setTimeout(resize, 180);   // 防抖：旋转/拖动窗口时避免反复重建
+});
+window.addEventListener('orientationchange', () => { if (S.ready) setTimeout(resize, 280); });
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0; prevT = 0;              // 后台彻底停帧，省电
+  } else if (S.ready && !rafId) {
+    rafId = requestAnimationFrame(loop);
+  }
+});
+document.addEventListener('contextmenu', e => {
+  if (stage.contains(e.target)) e.preventDefault();
+});
+
+/* 初始化离屏资源（pattern 需在 resize 前建立） */
+makeGrain();
+makeBlob();
+applyBrush(48);
+applyFog(72);
+resize();
+
+/* 对外扩展点：接入 OCR 即可把手写笔迹自动转成艺术字
+   例：window.雾镜.recognize = pts => '识别出的文字' */
+window.雾镜 = {
+  state: S,
+  clear: startClear,
+  save: savePicture,
+  placeShape,
+  placeText,
+  enableDemo,
+  gesture: setGesture,
+  loadHands, loadFace, enableMic,
+  engines: () => ({ hand: mpHand, face: mpFace, mic: MIC.on, webgl: webglOK() })
+};
+})();
+</script>
+</body>
+</html>

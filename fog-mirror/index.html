@@ -348,6 +348,7 @@ const blurA = document.createElement('canvas'), actx = blurA.getContext('2d');
 const blurB = document.createElement('canvas'), bct2 = blurB.getContext('2d');
 const flowA = document.createElement('canvas'), fac  = flowA.getContext('2d');
 const flowB = document.createElement('canvas'), fbc  = flowB.getContext('2d');
+const dm    = document.createElement('canvas'), dmctx = dm.getContext('2d');   // 真实雾浓淡的混合层
 mask.width = mask.height = 0;            // 0 表示「尚未初始化 → 需铺满白雾」
 ink.width  = ink.height  = 0;
 
@@ -375,7 +376,7 @@ const S = {
 let W = 0, H = 0, DPR = 1;
 let stamp = null, stampR = -1;
 let fogGrad = null, grainPat = null, blobSprite = null, fogTex = null, fogTexAR = 0;
-const grainShift = new DOMMatrix();   // 颗粒图案平移矩阵，全程复用一个实例
+let fogReal = null;                   // 实拍冷凝雾 → 灰度浓淡图（亮=雾浓），坐标固定，永不平移
 let videoReady = false;
 let lastPX = 0, lastPY = 0, lastMoveT = 0, haveLastM = false;
 
@@ -437,6 +438,50 @@ function makeFogTex() {
   g.putImageData(img, 0, 0);
   fogTex = c;
 }
+
+/* ── 实拍冷凝雾 → 固定浓淡图 ──
+   直接把照片当纹理有两个问题：坐标会随屏幕比例滑动，还会把水滴一起带进来。
+   assets/fog-real.webp 已离线处理过（中值削掉水滴亮盘与暗边 → 大高斯磨平 →
+   横向重压拉回只留竖向流痕 → 抬升窗外深色景物），得到「只有雾的浓淡」的灰度图。
+   这里再按屏幕比例做 cover 裁剪，并把灰度映射成「雾的浓度」alpha。 */
+const realSrc = new Image();
+let realSrcOK = false;
+const REAL_W = 224;                      // 浓淡图宽度：够软够省，又不会糊成色块
+
+function buildRealFog() {
+  if (!realSrcOK || !W || !H) return;
+  const ar = W / Math.max(1, H);
+  const bw = REAL_W;
+  const bh = Math.max(40, Math.round(bw / ar));
+  const sm = document.createElement('canvas');
+  sm.width = bw; sm.height = bh;
+  const sc = sm.getContext('2d', { willReadFrequently: true });
+  const img = realSrc;
+  const k = Math.max(bw / img.width, bh / img.height);   // cover 裁剪，避免拉伸变形
+  const dw = img.width * k, dh = img.height * k;
+  sc.drawImage(img, (bw - dw) * .5, (bh - dh) * .5, dw, dh);
+
+  const px = sc.getImageData(0, 0, bw, bh), d = px.data;
+  const n = bw * bh;
+  /* 固定区间映射，不做 min-max：极值会把整张图拉成色块（那正是「假」的来源）。
+     assets 里已把窗外深色景物抬到 55 以上，故 55..254 恰好是「雾薄 → 雾厚」。 */
+  for (let j = 0; j < n; j++) {
+    const i = j * 4;
+    let v = (d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114 - 55) / 199;
+    v = v < 0 ? 0 : v > 1 ? 1 : v;
+    v = v * v * (3 - 2 * v);            // smoothstep：拉开浓淡层次
+    d[i] = d[i + 1] = d[i + 2] = 255;   // 只保留浓淡（alpha）
+    d[i + 3] = (.40 + .55 * v) * 255;   // 抬底：最薄处也留一层薄雾
+  }
+  const out = fogReal || document.createElement('canvas');
+  out.width = bw; out.height = bh;
+  out.getContext('2d').putImageData(px, 0, 0);
+  fogReal = out;
+  dm.width = bw; dm.height = bh;
+}
+realSrc.onload = () => { realSrcOK = true; buildRealFog(); };
+realSrc.onerror = () => console.warn('[雾镜] 实拍雾纹理加载失败，改用程序化云雾');
+realSrc.src = './assets/fog-real.webp';
 
 /* 细颗粒：玻璃质感（可平铺，廉价的确定性噪点） */
 function makeGrain() {
@@ -539,6 +584,7 @@ function resize() {
   for (const c of [fctx, actx, bct2, xctx, ictx, lctx]) c.imageSmoothingEnabled = true;
 
   makeFogTex();
+  buildRealFog();
   buildFogGrad();
   initFlow();
   makeStamp();
@@ -596,7 +642,7 @@ function initFlow() {
     c.globalCompositeOperation = 'source-over';
     c.globalAlpha = 1;
     c.clearRect(0, 0, flowGX, flowGY);
-    c.drawImage(fogTex, 0, 0, flowGX, flowGY);
+    c.drawImage(fogReal || fogTex, 0, 0, flowGX, flowGY);
   }
   flowCur = 0; flowReady = true;
   for (let i = 0; i < IMP_N; i++) imps[i].on = false;
@@ -637,7 +683,7 @@ function updateFlow(t, dt) {
   /* 3) 补充新云雾，维持层次 */
   nxtC.globalCompositeOperation = 'source-over';
   nxtC.globalAlpha = Math.min(.6, FLOW_INJ * k);
-  nxtC.drawImage(fogTex, 0, 0, flowGX, flowGY);
+  nxtC.drawImage(fogReal || fogTex, 0, 0, flowGX, flowGY);
   nxtC.globalAlpha = 1;
 
   flowCur ^= 1;
@@ -739,28 +785,44 @@ function drawFog(t, dt) {
   lctx.fillStyle = `rgba(158,196,232,${.05 + .05 * S.fog})`;
   lctx.fillRect(0, 0, lw, lh);
 
-  /* 3) 自然浓淡：用云雾纹理擦薄白雾 → 薄处透出模糊镜中景
-        （擦薄强度随浓度略降：雾越浓，明暗反而越均匀） */
-  lctx.globalCompositeOperation = 'destination-out';
-  lctx.globalAlpha = .40 - .14 * S.fog;
-  lctx.drawImage(fogTex, 0, 0, lw, lh);
+  /* 3) 真实冷凝雾的浓淡：用实拍照片的密度图裁切白雾。
+        纹理坐标固定、不随时间平移 → 雾「贴」在玻璃上，不会自己流。
+        （雾越浓，照片结构略微压平，避免厚雾时过于斑驳） */
+  if (fogReal) {
+    const keep = .88 - .16 * S.fog;                 // 保留多少照片浓淡
+    dmctx.globalCompositeOperation = 'source-over';
+    dmctx.globalAlpha = 1;
+    dmctx.clearRect(0, 0, dm.width, dm.height);
+    dmctx.drawImage(fogReal, 0, 0);
+    dmctx.fillStyle = `rgba(255,255,255,${1 - keep})`;
+    dmctx.fillRect(0, 0, dm.width, dm.height);
+    lctx.globalCompositeOperation = 'destination-in';
+    lctx.globalAlpha = 1;
+    lctx.drawImage(dm, 0, 0, lw, lh);
+    lctx.globalCompositeOperation = 'source-over';
+  } else {
+    /* 照片没加载出来 → 退回程序化云雾 */
+    lctx.globalCompositeOperation = 'destination-out';
+    lctx.globalAlpha = .40 - .14 * S.fog;
+    lctx.drawImage(fogTex, 0, 0, lw, lh);
+    lctx.globalAlpha = 1;
+    lctx.globalCompositeOperation = 'source-over';
+  }
 
-  /* 4) 动态雾：流速场里的云雾也在擦薄，且随时间卷动 */
+  /* 4) 动态雾：流速场自平流，仅动态模式启用；静态模式完全不调用 */
   if (S.mode === 'dynamic' && flowReady) {
     updateFlow(t, dt);
+    lctx.globalCompositeOperation = 'destination-out';
     lctx.globalAlpha = .34 - .10 * S.fog;
     lctx.drawImage(flowCur ? flowB : flowA, 0, 0, lw, lh);
+    lctx.globalAlpha = 1;
+    lctx.globalCompositeOperation = 'source-over';
   }
-  lctx.globalAlpha = 1;
-  lctx.globalCompositeOperation = 'source-over';
 
-  /* 5) 细颗粒：玻璃质感 */
+  /* 5) 细颗粒：玻璃质感。坐标固定，绝不随时间平移（那是「雾在动」的元凶） */
   lctx.globalCompositeOperation = 'overlay';
-  lctx.globalAlpha = .26;
+  lctx.globalAlpha = fogReal ? .13 : .26;
   lctx.fillStyle = grainPat;
-  grainShift.e = (t * .03) % 128;      // 复用同一个矩阵，避免每帧新建对象
-  grainShift.f = (t * .05) % 128;
-  grainPat.setTransform(grainShift);
   lctx.fillRect(0, 0, lw, lh);
   lctx.globalCompositeOperation = 'source-over';
   lctx.globalAlpha = 1;

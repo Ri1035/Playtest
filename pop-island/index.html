@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="波普岛 POP ISLAND — 波普艺术风格的 Web 2D 小岛收集小游戏" />
+  <title>POP ISLAND · 波普岛</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="game-canvas" aria-label="波普岛游戏画面"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden" aria-hidden="true">
+      <div id="score-box">
+        <span id="score-val">0</span>
+        <span id="best-val">BEST 0</span>
+      </div>
+      <div id="combo-box" class="hidden">
+        <div id="combo-val">x1</div>
+        <div id="combo-bar"><div id="combo-fill"></div></div>
+      </div>
+      <div id="paint-box">
+        <div id="paint-fill"></div>
+        <span id="level-val">LV.1</span>
+      </div>
+      <button id="mute-btn" class="hud-btn" type="button" aria-label="切换音效">SOUND ON</button>
+    </div>
+
+    <!-- 主菜单 -->
+    <div id="menu-screen">
+      <div class="menu-stars" aria-hidden="true"></div>
+      <h1 class="title">POP&nbsp;ISLAND</h1>
+      <p class="subtitle">波 普 岛</p>
+      <p class="intro">收集波普元素 · 连击得分 · 涂满整座岛</p>
+      <button id="start-btn" class="pop-btn" type="button">开 始 游 戏</button>
+      <p class="controls-hint">WASD / 方向键移动 · 触屏拖动摇杆</p>
+      <p class="best-hint">最高分 <span id="menu-best">0</span></p>
+    </div>
+
+    <!-- 暂停 -->
+    <div id="pause-screen" class="hidden">
+      <div class="pause-panel">
+        <h2>暂 停</h2>
+        <button id="resume-btn" class="pop-btn" type="button">继 续</button>
+        <button id="restart-btn" class="pop-btn ghost" type="button">重 新 开 始</button>
+      </div>
+    </div>
+
+    <div id="level-flash" class="hidden" aria-hidden="true"></div>
+    <div id="hit-flash" class="hidden" aria-hidden="true"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -10,7 +10,7 @@
 - [x] WebAudio 合成音效
 - [x] 构建验证 + 浏览器实测
 - [x] Git 小步提交并推送 GitHub（公开仓库）
-- [ ] Cloudflare Pages 部署并验证线上访问
+- [x] Cloudflare Pages 部署并验证线上访问（https://pop-breaker-cm3.pages.dev）
 
 ## 后续规划（按优先级）
 

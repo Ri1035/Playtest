@@ -11,3 +11,8 @@
 - feat: 粒子爆裂与漫画拟声飘字
 - docs: 文档体系（AGENTS / README / DESIGN / CHANGELOG / TODO / docs/*）
 - chore: Vite 脚手架与构建配置
+
+## [0.1.1] - 2026-10-07
+
+- chore: 新增单文件构建脚本（scripts/inline-single.mjs，内联 CSS/JS/favicon）
+- deploy: Cloudflare Pages 直传部署（pop-breaker-cm3.pages.dev，ZIP 载荷方案）并验证线上可玩

@@ -1,0 +1,269 @@
+/* ===== POP BREAKER 波普打砖块：全局样式 ===== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --ink: #111111;
+  --paper: #fff3c4;
+  --red: #ff3b30;
+  --yellow: #ffd60a;
+  --blue: #00c2ff;
+  --pink: #ff2d95;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: "Arial Black", "Microsoft YaHei", Arial, sans-serif;
+  background:
+    radial-gradient(circle, rgba(17, 17, 17, 0.06) 2px, transparent 2px) 0 0 / 18px 18px,
+    linear-gradient(180deg, #ffd60a 0%, #ff8ad8 55%, #00c2ff 130%);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+#app {
+  position: relative;
+  width: min(96vw, 960px);
+}
+
+canvas#game {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff3c4;
+  border: 5px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 8px 8px 0 rgba(17, 17, 17, 0.9);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* ===== HUD ===== */
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#hud > * {
+  background: rgba(255, 255, 255, 0.92);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-size: 16px;
+  line-height: 1.2;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.85);
+  white-space: nowrap;
+}
+
+.hud-label {
+  font-size: 12px;
+  color: #555;
+  margin-right: 5px;
+}
+
+#hud-score {
+  min-width: 92px;
+}
+
+#hud-score #score {
+  font-size: 20px;
+  color: var(--red);
+}
+
+#hud-combo {
+  background: var(--yellow);
+  color: var(--ink);
+  font-size: 18px;
+  transform: rotate(-2deg);
+}
+
+#hud-center {
+  margin: 0 auto;
+}
+
+#hud-center #level {
+  color: var(--blue);
+  font-size: 20px;
+}
+
+#hud-lives svg {
+  vertical-align: middle;
+  margin: 0 -2px;
+}
+
+#hud-best {
+  display: none;
+}
+
+#hud-best.hidden {
+  display: none;
+}
+
+#hud button {
+  pointer-events: auto;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 5px 10px;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.85);
+}
+
+#hud button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(17, 17, 17, 0.85);
+}
+
+/* ===== 全屏遮罩（菜单 / 结束）===== */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 17, 17, 0.35);
+  border-radius: 14px;
+  z-index: 10;
+}
+
+.screen.hidden {
+  display: none;
+}
+
+.menu-inner {
+  text-align: center;
+  background: var(--paper);
+  border: 5px solid var(--ink);
+  border-radius: 18px;
+  padding: 28px 36px;
+  box-shadow: 10px 10px 0 rgba(17, 17, 17, 0.9);
+  max-width: 88%;
+}
+
+.logo {
+  font-size: 64px;
+  line-height: 0.95;
+  letter-spacing: -2px;
+  color: var(--red);
+  -webkit-text-stroke: 3px var(--ink);
+  text-shadow: 4px 4px 0 var(--yellow);
+}
+
+.subtitle {
+  font-size: 18px;
+  color: var(--blue);
+  margin: 6px 0 18px;
+  -webkit-text-stroke: 1px var(--ink);
+}
+
+.btn {
+  display: inline-block;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--ink);
+  background: var(--yellow);
+  border: 4px solid var(--ink);
+  border-radius: 14px;
+  padding: 10px 26px;
+  margin: 6px;
+  cursor: pointer;
+  box-shadow: 5px 5px 0 rgba(17, 17, 17, 0.9);
+  transition: transform 0.06s;
+}
+
+.btn:hover {
+  background: #ffe95c;
+}
+
+.btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 rgba(17, 17, 17, 0.9);
+}
+
+.btn-big {
+  font-size: 24px;
+  padding: 14px 40px;
+  background: var(--red);
+  color: #fff;
+}
+
+.btn-big:hover {
+  background: #ff5745;
+}
+
+.tips {
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #444;
+}
+
+.best-line {
+  margin-top: 12px;
+  font-size: 16px;
+  color: var(--red);
+}
+
+.over-title {
+  font-size: 52px;
+  color: var(--red);
+  -webkit-text-stroke: 3px var(--ink);
+  text-shadow: 4px 4px 0 var(--yellow);
+}
+
+.over-score {
+  font-size: 24px;
+  margin: 12px 0;
+}
+
+/* 窄屏适配 */
+@media (max-width: 520px) {
+  .logo {
+    font-size: 46px;
+  }
+  .over-title {
+    font-size: 38px;
+  }
+  #hud {
+    gap: 5px;
+  }
+  #hud > * {
+    font-size: 13px;
+    padding: 4px 7px;
+  }
+  .hud-label {
+    display: none;
+  }
+  #hud-combo {
+    position: absolute;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+  }
+}

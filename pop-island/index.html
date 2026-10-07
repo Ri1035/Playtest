@@ -1,56 +1,49 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="description" content="波普岛 POP ISLAND — 波普艺术风格的 Web 2D 小岛收集小游戏" />
-  <title>POP ISLAND · 波普岛</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POP ISLAND · 波普小岛</title>
+<meta name="description" content="一款以波普艺术为视觉语言的 2D 小岛经营游戏，Ben-Day 网点与漫画拟声词全程在线。">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23ffd400'/><circle cx='16' cy='16' r='9' fill='%23ff2d78'/></svg>">
 </head>
 <body>
-  <div id="game-wrap">
-    <canvas id="game-canvas" aria-label="波普岛游戏画面"></canvas>
+<div class="app">
 
-    <!-- HUD -->
-    <div id="hud" class="hidden" aria-hidden="true">
-      <div id="score-box">
-        <span id="score-val">0</span>
-        <span id="best-val">BEST 0</span>
-      </div>
-      <div id="combo-box" class="hidden">
-        <div id="combo-val">x1</div>
-        <div id="combo-bar"><div id="combo-fill"></div></div>
-      </div>
-      <div id="paint-box">
-        <div id="paint-fill"></div>
-        <span id="level-val">LV.1</span>
-      </div>
-      <button id="mute-btn" class="hud-btn" type="button" aria-label="切换音效">SOUND ON</button>
-    </div>
+  <header class="masthead">
+    <h1 class="logo"><span class="logo-pop">POP</span><span class="logo-island">ISLAND</span></h1>
+    <p class="tagline">印刷出来的岛屿 · 网点与拟声词</p>
+  </header>
 
-    <!-- 主菜单 -->
-    <div id="menu-screen">
-      <div class="menu-stars" aria-hidden="true"></div>
-      <h1 class="title">POP&nbsp;ISLAND</h1>
-      <p class="subtitle">波 普 岛</p>
-      <p class="intro">收集波普元素 · 连击得分 · 涂满整座岛</p>
-      <button id="start-btn" class="pop-btn" type="button">开 始 游 戏</button>
-      <p class="controls-hint">WASD / 方向键移动 · 触屏拖动摇杆</p>
-      <p class="best-hint">最高分 <span id="menu-best">0</span></p>
-    </div>
+  <section class="hud" aria-label="资源状态">
+    <div class="res-card res-wood"><span class="res-icon">🪵</span><span class="res-label">木材</span><span class="res-value" id="res-wood">0</span></div>
+    <div class="res-card res-stone"><span class="res-icon">🪨</span><span class="res-label">石料</span><span class="res-value" id="res-stone">0</span></div>
+    <div class="res-card res-crystal"><span class="res-icon">💎</span><span class="res-label">晶石</span><span class="res-value" id="res-crystal">0</span></div>
+    <div class="stat"><span class="stat-label">人口</span><span class="stat-value" id="stat-pop">1</span></div>
+    <div class="stat"><span class="stat-label">建筑</span><span class="stat-value" id="stat-buildings">0</span></div>
+    <div class="stat"><span class="stat-label">连击</span><span class="stat-value" id="stat-combo">-</span></div>
+  </section>
 
-    <!-- 暂停 -->
-    <div id="pause-screen" class="hidden">
-      <div class="pause-panel">
-        <h2>暂 停</h2>
-        <button id="resume-btn" class="pop-btn" type="button">继 续</button>
-        <button id="restart-btn" class="pop-btn ghost" type="button">重 新 开 始</button>
-      </div>
-    </div>
+  <main class="stage">
+    <canvas id="board" aria-label="波普小岛游戏画面"></canvas>
+  </main>
 
-    <div id="level-flash" class="hidden" aria-hidden="true"></div>
-    <div id="hit-flash" class="hidden" aria-hidden="true"></div>
-  </div>
-  <script type="module" src="/src/main.js"></script>
+  <p class="hint" id="hint" role="status" aria-live="polite">欢迎登岛！</p>
+
+  <section class="toolbar-wrap" aria-label="建造工具栏">
+    <h2 class="toolbar-title">建造</h2>
+    <div class="toolbar" id="toolbar"></div>
+  </section>
+
+  <footer class="foot">
+    <button type="button" id="btn-sound" class="ghost-btn">🔊 音效开</button>
+    <button type="button" id="btn-reset" class="ghost-btn">🏝️ 换一座岛</button>
+    <span class="credit">波普小岛 · 纯 Canvas 绘制</span>
+  </footer>
+
+</div>
+
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

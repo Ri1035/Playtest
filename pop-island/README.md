@@ -1,52 +1,74 @@
-# POP ISLAND · 波普岛
+# POP ISLAND · 波普小岛
 
-波普艺术风格的 Web 2D 小岛收集小游戏：在波普风小岛上移动收集元素、连击得分、躲避海鸥，把整座岛涂满颜色。
-
-- 在线试玩：https://pop-island.pages.dev
-- 仓库地址：https://github.com/Ri1035/pop-island
-
-## 技术栈
-
-- 原生 JavaScript（ES Modules）+ Canvas 2D，程序化绘制全部波普风素材，零运行时依赖
-- WebAudio 合成音效，零音频素材
-- Vite 5 构建，Cloudflare Pages 部署
+一款以波普艺术（Pop Art）为视觉语言的 2D 浏览器小岛经营游戏。整座岛屿——地形、建筑、拟声词、特效——全部由 Canvas 程序化绘制，零图片素材、零外部依赖、零构建步骤。
 
 ## 快速开始
 
+无需安装任何依赖，任意静态服务器即可运行：
+
 ```bash
-npm install
-npm run dev      # 本地开发
-npm run build    # 生产构建，产物在 dist/
-npm run preview  # 本地预览构建产物
+# 任选其一
+npx serve .
+python -m http.server 8080
 ```
+
+浏览器打开 `http://localhost:8080` 即可游玩。
+
+> 直接双击 `index.html` 无法运行：项目使用原生 ES Module，浏览器会以 CORS 策略拦截 `file://` 协议下的模块加载。
 
 ## 玩法
 
-- 移动：WASD / 方向键（触屏拖动摇杆）
-- 收集波普元素（星星、樱桃、香蕉、嘴唇、甜甜圈等）得分并填充涂色条
-- 3.5 秒内连续收集触发连击，倍率最高 x5
-- 躲避海鸥；被撞到会重置连击
-- 涂色条满后升级，岛屿切换波普配色并提速
-- 稀有道具：磁铁（吸引元素）、冰冻（冻结海鸥）
+| 操作 | 结果 |
+| --- | --- |
+| 点击空地（虚线框） | 建造当前选中的建筑，岛上人口 +1 |
+| 点击森林 | 获得木材 ×1 |
+| 点击岩地 | 获得石料 ×1 |
+| 连点已有建筑 | 累积连击，人口快速增长，每 5 连额外奖励资源 |
+| 点击海洋 | 涟漪反馈 + 文字提示 |
+| 底部工具栏 | 切换待建建筑 |
+
+建筑每 2 秒自动结算一次产出。进度自动存入浏览器本地存储，关闭页面不会丢失。
+
+## 技术栈
+
+- 原生 ES Module（无打包器、无框架、无依赖）
+- Canvas 2D 程序化美术
+- WebAudio 程序化音效（方波合成，无音频文件）
+- localStorage 存档
+
+选择零依赖方案的原因：波普风格的核心是网点与平涂色块，用 Canvas 图案填充即可精确实现，引入引擎或素材库反而增加体积与授权风险。详见 `docs/ARCHITECTURE.md`。
+
+## 视觉语言
+
+完整规范见 `DESIGN.md`，要点：
+
+- **Ben-Day 网点**——1879 年商业印刷工艺，取代一切渐变；等大等距圆点叠印出第二色
+- **平涂色块**——只用高饱和原色（青 / 洋红 / 黄），不用明暗过渡
+- **粗黑描边**——`#141414`，3–5px，定义画面骨架
+- **硬投影**——`5px 5px 0` 偏移方块，不用模糊阴影
+- **漫画拟声词**——12 角星形气泡（POW! / BAM! / ZAP!）
 
 ## 目录结构
 
 ```
-├── AGENTS.md            # 项目协作与代码开发规范
-├── README.md            # 项目简介（本文件）
-├── DESIGN.md            # 波普视觉与交互设计规范
-├── CHANGELOG.md         # 版本更新记录
-├── TODO.md              # 开发计划与进度
-├── docs/                # 下沉文档（详见各文件）
-├── public/              # 静态资源
-└── src/
-    ├── main.js          # 入口
-    ├── styles.css       # 全局波普样式
-    └── game/            # 游戏核心模块
+index.html            入口
+assets/style.css      视觉系统
+src/core/             随机数与状态管理
+src/game/             岛屿生成与数值定义
+src/render/           调色板、网点系统、精灵、特效
+src/ui/               程序化音效
+docs/                 项目文档
+.devtools/            开发期自检脚本（不参与线上运行）
 ```
 
-详细设计、架构与部署说明见 `docs/` 目录。
+## 开发
 
-## License
+```bash
+node .devtools/test-logic.cjs   # 14 项玩法逻辑单元测试
+```
 
-MIT License，见 [LICENSE](./LICENSE)。
+浏览器交互自检需先启动本地服务器，再访问 `.devtools/test-interaction.html`，页面会列出 22 项断言结果。
+
+## 部署
+
+Cloudflare Pages 直接托管静态文件，无构建步骤。详见 `docs/DEPLOYMENT.md`。

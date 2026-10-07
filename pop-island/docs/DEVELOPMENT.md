@@ -1,44 +1,162 @@
-# DEVELOPMENT.md — 项目开发与组件发布流程
+# 开发流程
 
-## 开发流程
+## 环境要求
 
-1. **认领任务**：在 TODO.md 登记"进行中"。
-2. **检索先行**：陌生能力先检索开源方案 / 免费资源 / skills，1-2 轮为限；简单任务直接开工。
-3. **小步实现**：一次只做一个可验证的增量，禁止一次大爆炸改动。
-4. **本地验证**：
-   ```bash
-   npm run dev        # 开发服务器
-   npm run build      # 生产构建
-   npm run preview    # 预览构建产物（验证产物而非源码）
-   ```
-5. **提交**：按 AGENTS.md 的 Conventional Commits 规范小步提交，作者邮箱 `koka2996978242@outlook.com`。
-6. **更新记录**：面向用户的改动同步更新 CHANGELOG.md 与 TODO.md。
+- Node.js ≥ 18（仅用于运行自检脚本与部署工具）
+- 现代浏览器（Chrome / Edge / Firefox / Safari 近两年版本）
+- 无需安装项目依赖——**本项目没有 `package.json`**
 
-## 新增一个收集元素的完整流程
+## 本地开发
 
-1. 在 `sprites.js` 新增绘制函数（遵守 COMPONENT-GUIDELINES 精灵规范）。
-2. 在 `ITEMS` 注册表登记：`r / worth / color / draw`。
-3. 本地运行确认生成、收集、得分、粒子、飘字全部正常。
-4. 更新 REGISTRY.md 资源清单。
-5. 提交（`feat: 新增 xxx 元素`）+ 更新 CHANGELOG.md。
+```bash
+# 启动本地服务器（任选其一）
+python -m http.server 8080
+npx serve .
+```
 
-## 发布流程
+打开 `http://localhost:8080`。
 
-1. 本地 `npm run build` 通过。
-2. 合入 `main` 分支并推送 GitHub。
-3. Cloudflare Pages 检测到 `main` 更新后自动构建部署（配置见 DEPLOYMENT.md）。
-4. 线上验证：打开 pages.dev 地址，确认资源加载与首局可玩。
+### 为什么必须用服务器
 
-## 验证清单（每次改动必查）
+项目使用原生 ES Module。浏览器对 `file://` 协议下的模块加载执行严格 CORS 限制，直接双击 `index.html` 会得到空白页与 CORS 报错。这是浏览器安全策略，与代码无关。
 
-- [ ] `npm run build` 无错误无警告
-- [ ] 桌面：菜单 → 开始 → 移动 → 收集 → 连击 → 升级 → 暂停/恢复
-- [ ] 移动端（DevTools 模拟或真机）：摇杆拖动正常、无滚动穿透
-- [ ] 无控制台报错
-- [ ] 无密钥硬编码、无 AI 水印
+## 自检
 
-## 分支策略
+### 逻辑单元测试
 
-- `main`：唯一长期分支，始终保持可部署。
-- 功能开发使用 `feat/xxx` 短生命周期分支，合并后删除。
-- 禁止直接向 `main` 推送未验证代码。
+```bash
+node .devtools/test-logic.cjs
+```
+
+覆盖 14 项：岛屿生成的确定性与多样性、开局可行性、建造校验、扣料、生产结算、存档往返、损坏数据降级。
+
+测试通过 `global.localStorage` 垫片在 Node 环境运行，不依赖浏览器。
+
+**预期输出**：
+
+```
+PASS  同一种子生成完全相同的岛屿  (484格一致)
+...
+合计 14 项，通过 14，失败 0
+```
+
+退出码：0 表示全部通过。
+
+### 浏览器交互自检
+
+1. 启动本地服务器
+2. 访问 `http://localhost:8080/.devtools/test-interaction.html`
+3. 页面底部输出 22 项断言结果
+
+覆盖：初始化、工具栏渲染、地形构成、建造扣料、人口变化、HUD 同步、资源采集、连击累积、工具栏切换、悬停响应、存档内容。
+
+页面标题在全部通过时为 `ALL_PASS`。
+
+**注意**：该页面复制了一份 index.html 的 DOM 结构。修改 index.html 结构时需同步更新此页，否则测试会因元素缺失而失败。
+
+### 截图目视验证
+
+**Canvas 绘制改动必须截图确认，不能只看代码。** 网点参数是否合适、配色对比度是否足够、元素是否重叠，这些无法通过代码审查判断。
+
+```bash
+# 检视五种建筑的矢量绘制
+# 先启动服务器，然后访问 .devtools/preview-sprites.html 截图
+
+# 检视建成后的整体画面
+# 访问 .devtools/preview-built.html
+```
+
+无头 Edge 命令示例：
+
+```bash
+msedge.exe --headless=new --disable-gpu --enable-unsafe-swiftshader \
+  --no-first-run --user-data-dir=<临时目录> \
+  --virtual-time-budget=8000 \
+  --screenshot=<输出路径> --window-size=1200,900 \
+  "http://localhost:8080/"
+```
+
+**注意事项**：
+
+- `--enable-unsafe-swiftshader` 是软件渲染开关，无头环境缺少 GPU 时必需
+- `--virtual-time-budget` 控制等待时长，须足够让模块加载与首帧渲染完成
+- 每次使用独立的 `--user-data-dir`，避免状态污染
+- 不要加 `--force-device-scale-factor=1`，会导致截图输出 0 字节
+
+## 新增功能的标准流程
+
+1. **确认范围**：只做被要求的改动，不顺手重构
+2. **改数据定义**：新数值加到 `game/defs.js`，新绘制加到 `render/sprites.js`
+3. **改逻辑**：状态修改加到 `core/state.js` 的导出函数
+4. **更新文档**：`DESIGN.md`（若涉及视觉规范）、`docs/ARCHITECTURE.md`（若涉及结构）
+5. **自验证**：
+   - 跑 `node .devtools/test-logic.cjs`
+   - 浏览器交互自检
+   - **涉及 Canvas 改动必须截图目视确认**
+6. **更新 CHANGELOG.md**
+7. **Git 小步提交**
+8. **部署并验证线上地址**
+
+## 新增内容的自检清单
+
+新增功能前逐项确认，避免遗漏：
+
+- [ ] 数据定义放在 `defs.js`，不在代码里散落硬编码
+- [ ] 颜色从 `palette.js` 导入，没有写字面色值
+- [ ] 状态修改经过 `core/state.js` 的导出函数
+- [ ] 新增状态字段已加入 `createGame` / `saveGame` / `loadGame`
+- [ ] 交互元素有 hover、active、disabled、focus-visible 四态
+- [ ] 颜色不是唯一信息载体
+- [ ] 有对应的测试用例
+- [ ] 注释解释"为什么"而非"做了什么"
+- [ ] 无生成工具水印或署名
+- [ ] CHANGELOG.md 已更新
+
+## 调试技巧
+
+### 查看运行时错误
+
+```bash
+msedge.exe --headless=new --enable-logging=stderr --v=0 \
+  --dump-dom <url> 2>&1 | grep CONSOLE
+```
+
+控制台错误会以 `[INFO:CONSOLE:行号]` 形式输出。这是排查"页面空白但无报错提示"的首选手段。
+
+### 存档调试
+
+```js
+// 在控制台查看当前存档
+JSON.parse(localStorage.getItem('pop-island-save-v1'))
+
+// 清除存档
+localStorage.removeItem('pop-island-save-v1')
+```
+
+### 暴露的调试对象
+
+`main.js` 末尾暴露：
+
+```js
+window.__ready = true;
+window.__game = { state, renderer, GRID_SIZE, INK, CHATTER };
+```
+
+可在控制台直接操作游戏状态：
+
+```js
+__game.state.resources.wood = 999   // 无限资源
+__game.state.tiles                   // 查看地形数组
+__game.renderer.rebake(__game.state) // 手动重新烘焙地形
+```
+
+## 性能排查
+
+若帧率下降，按此顺序检查：
+
+1. 是否在地形中引入了逐帧重绘（应烘焙）
+2. 网点图案缓存键是否变化（会导致每帧重建 pattern）
+3. 建筑数量是否超出预期
+4. 特效对象是否堆积未回收（`updateEffects` 是否正常清理）
+
+用浏览器 Performance 面板录制 60 帧，看 Canvas 绘制耗时。

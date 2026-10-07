@@ -1,0 +1,15 @@
+{
+  "name": "pop-breaker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "波普打砖块 POP BREAKER — 波普艺术风格 Web 2D 打砖块街机游戏",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}

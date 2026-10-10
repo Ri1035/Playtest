@@ -5,6 +5,7 @@ _*.py
 !_build.py
 _shots/
 _backup/
+_publish/
 __pycache__/
 *.pyc
 

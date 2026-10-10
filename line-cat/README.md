@@ -13,7 +13,7 @@
 
 ## 在线演示
 
-部署完成后补充 Cloudflare Pages 地址。
+生产地址：<https://line-cat.pages.dev>
 
 ## 快速开始
 

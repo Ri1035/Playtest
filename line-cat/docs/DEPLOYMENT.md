@@ -14,6 +14,8 @@ Cloudflare Pages 部署说明。
 
 站点为纯静态文件，`assets/` 随站点一起发布；`assets/svg/` 为源文件存档，不影响运行。
 
+生产地址：<https://line-cat.pages.dev>
+
 ## 方式一：Wrangler CLI（推荐，直接部署）
 
 需要 Node.js 与 wrangler。凭据通过环境变量注入，**不要写入仓库**：

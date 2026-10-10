@@ -14,3 +14,4 @@
 - 尊重 `prefers-reduced-motion`；键盘可达。
 - 建立项目文档：AGENTS / DESIGN / README / TODO 与 `docs/` 系列。
 - 仓库经 GitHub 管理，Cloudflare Pages 部署。
+- 在线演示：<https://line-cat.pages.dev>

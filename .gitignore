@@ -1,0 +1,19 @@
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.log
+
+# 依赖与构建产物（各子目录独立安装，不入库）
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 备份目录（仅本地保留，不入库）
+backup/

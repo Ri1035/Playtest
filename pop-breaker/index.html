@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#ff3b30" />
+  <title>POP BREAKER · 波普打砖块</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="game" width="960" height="640"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+      <div id="hud-score">
+        <span class="hud-label">得分</span>
+        <span id="score">0</span>
+      </div>
+      <div id="hud-combo" class="hidden"></div>
+      <div id="hud-center">
+        <span class="hud-label">第 <b id="level">1</b> 关</span>
+      </div>
+      <div id="hud-lives"><span class="hud-label">生命</span><span id="lives"></span></div>
+      <div id="hud-best" class="hidden">
+        <span class="hud-label">最高分</span>
+        <span id="best">0</span>
+      </div>
+      <button id="btn-pause" title="暂停（P）">II</button>
+      <button id="btn-mute" title="声音（M）">♪</button>
+    </div>
+
+    <!-- 菜单 -->
+    <div id="menu" class="screen">
+      <div class="menu-inner">
+        <h1 class="logo">POP<br/>BREAKER</h1>
+        <p class="subtitle">波普打砖块</p>
+        <button id="btn-start" class="btn btn-big">开始游戏</button>
+        <p class="tips">鼠标 / 拖动 / 方向键移动挡板<br/>点击或空格发球 · P 暂停 · M 静音</p>
+        <p id="menu-best" class="best-line hidden"></p>
+      </div>
+    </div>
+
+    <!-- 结束 -->
+    <div id="gameover" class="screen hidden">
+      <div class="menu-inner">
+        <h2 class="over-title">GAME OVER</h2>
+        <p class="over-score">得分 <b id="final-score">0</b></p>
+        <p id="final-best" class="best-line hidden"></p>
+        <p id="final-level" class="best-line"></p>
+        <button id="btn-again" class="btn btn-big">再来一局</button>
+        <button id="btn-menu" class="btn">返回菜单</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

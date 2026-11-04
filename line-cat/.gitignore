@@ -1,0 +1,19 @@
+# 侦查 / 检查类中间产物（生成器 _build.py 需保留，显式取反）
+_*.txt
+_*.html
+_*.py
+!_build.py
+_shots/
+_backup/
+_publish/
+__pycache__/
+*.pyc
+
+# 本地部署工具
+.wrangler/
+node_modules/
+
+# 系统 / 编辑器
+Thumbs.db
+desktop.ini
+.DS_Store
